@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+@theme {
+  /* `xs:` is used ~20 times across Navbar, the hero, category pills, the custom cake modal,
+     admin orders and the delivery route map, all intended as a step between the tightest
+     "smallest phone" base styles and `sm:` (640px) -- e.g. revealing "NH-48 Highway" under the
+     location pill, or bumping category-circle sizes. Tailwind never had an `xs` breakpoint
+     registered, so every one of those rules silently compiled to nothing (verified: zero
+     `.xs\:` rules in the production CSS despite the source usage) -- real phones in the very
+     common ~380-430px range were stuck rendering the tightest base styles meant for ~320-360px
+     devices, which is what made things read as cramped/truncated. 384px sits below typical
+     modern phone widths (390-430px) so they now actually receive the intended step-up, while
+     only the smallest legacy phones (<384px) keep the original conservative base styles.
+     Registering it here activates every existing `xs:` class site-wide -- no component changes
+     needed, and since those rules previously did nothing, this can only add spacing/sizing that
+     was already intended, never regress anything. */
+  --breakpoint-xs: 24rem;
+
+  --color-stone-750: #221f1d;
+  --color-stone-850: #171513;
+
+  /* Candy/food accent — a cherry-red that pairs with the existing amber
+     ("caramel") scale so primary CTAs read as a glossy strawberry-caramel
+     swirl instead of a single flat brand color. */
+  --color-candy-cherry-50: #fff1f2;
+  --color-candy-cherry-400: #fb5d78;
+  --color-candy-cherry-500: #ec2f56;
+  --color-candy-cherry-600: #d31a44;
+  --color-candy-cherry-700: #ad1339;
+
+  /* Warm cream page background -- replaces the near-white stone-50 on the main page
+     chrome (body, header, hero) so the site reads as soft/eye-easing rather than stark
+     white. Cards stay white on top of it for contrast, matching a common warm-neutral +
+     white-card pattern. */
+  --color-cream: #fdf6ec;
+  --color-cream-dark: #f7ecdb;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  html,
+  body {
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply transition-colors duration-200 antialiased;
+  }
+}
+
+/* ==============================================================
+   Management Portal Free Scrolling (Zero Visible Scrollbars)
+   ============================================================== */
+.admin-portal-scroll,
+[data-admin-portal],
+[data-admin-portal] * {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
+}
+
+.admin-portal-scroll::-webkit-scrollbar,
+[data-admin-portal]::-webkit-scrollbar,
+[data-admin-portal] *::-webkit-scrollbar {
+  display: none !important; /* Chrome, Safari, Opera, Edge */
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+/* Universal utility to hide scrollbars while allowing natural scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+@media print {
+  /* Hide all regular web UI elements */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Exclusively show the KOT thermal ticket */
+  #kot-print-area,
+  #kot-print-area * {
+    visibility: visible !important;
+  }
+
+  #kot-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 !important;
+    padding: 6mm !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Courier New', Courier, monospace !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

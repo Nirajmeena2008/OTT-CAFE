@@ -1,0 +1,9 @@
+{
+  "name": "Out of the Town - Restro and Bakery",
+  "description": "Production-ready web application for Out of the Town (OTT) Restro and Bakery in Kukas, Jaipur. Features a Zomato-style digital menu, table reservations, online food ordering with staff acceptance workflow, live kitchen tracking, MySQL relational database persistence, and an admin management portal.",
+  "requestFramePermissions": [
+    "geolocation",
+    "microphone"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

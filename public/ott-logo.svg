@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <!-- Soft Drop Shadow for OTT Typography -->
+    <filter id="textDropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.35" />
+    </filter>
+    <filter id="badgeShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+
+    <!-- Clip Path for the circular emblem -->
+    <clipPath id="circleClip">
+      <circle cx="200" cy="200" r="186" />
+    </clipPath>
+
+    <!-- Text Path for "OUT OF THE TOWN" upper circular arc -->
+    <path id="archPath" d="M 68 200 A 132 132 0 0 1 332 200" fill="none" />
+  </defs>
+
+  <!-- Outer Tactile 3D Circular Rim / Badge Frame -->
+  <g filter="url(#badgeShadow)">
+    <circle cx="200" cy="200" r="190" fill="#f8f9fa" stroke="#e2e8f0" stroke-width="2" />
+  </g>
+
+  <!-- Inner Clipped Content (Pink, Sage, Pine Green Landscapes) -->
+  <g clip-path="url(#circleClip)">
+    <!-- 1. Top Section: Coral Pink Background -->
+    <rect width="400" height="400" fill="#D2556B" />
+
+    <!-- 2. Middle Section: Soft Sage Green Organic Wave -->
+    <path d="M 0 135 C 90 165, 170 140, 240 135 C 310 130, 360 148, 400 162 L 400 400 L 0 400 Z" fill="#7BABA0" />
+
+    <!-- 3. Bottom Section: Deep Forest Pine Green Mountain / Hill -->
+    <path d="M 0 295 C 70 240, 150 215, 230 220 C 300 225, 360 255, 400 280 L 400 400 L 0 400 Z" fill="#1B4731" />
+
+    <!-- Delicate Line-Art Botanical Branch on the Dark Green base -->
+    <g stroke="#97C5B5" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.85">
+      <!-- Main curved stem -->
+      <path d="M 188 348 Q 194 305 210 270" />
+      <!-- Left lower leaf -->
+      <path d="M 191 325 C 172 328, 168 316, 178 308 C 188 300, 193 315, 193 322" />
+      <!-- Right lower leaf -->
+      <path d="M 194 320 C 212 320, 218 308, 208 302 C 198 296, 194 310, 195 318" />
+      <!-- Left mid leaf -->
+      <path d="M 197 298 C 182 296, 178 284, 188 278 C 198 272, 200 288, 199 295" />
+      <!-- Right mid leaf -->
+      <path d="M 202 292 C 218 288, 222 276, 214 272 C 206 268, 202 282, 203 290" />
+      <!-- Top central leaf -->
+      <path d="M 209 272 C 214 252, 208 245, 204 252 C 200 258, 205 268, 208 271" />
+    </g>
+
+    <!-- Concentric Thin White Inner Rings matching user image -->
+    <!-- Broken/Interrupted White Ring framing the curved text -->
+    <path d="M 72 200 A 128 128 0 0 0 328 200" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" />
+    <path d="M 328 200 A 128 128 0 0 0 300 120" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" />
+    <path d="M 100 120 A 128 128 0 0 0 72 200" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" />
+
+    <!-- Arched Text: "OUT OF THE TOWN" -->
+    <text fill="#ffffff" font-family="'Times New Roman', Times, 'Playfair Display', Georgia, serif" font-size="28" font-weight="600" letter-spacing="4">
+      <textPath href="#archPath" startOffset="50%" text-anchor="middle">
+        OUT OF THE TOWN
+      </textPath>
+    </text>
+
+    <!-- Centerpiece Typography: Bold Serif "OTT" with delicate drop shadow -->
+    <text x="200" y="226" fill="#ffffff" font-family="'Times New Roman', Times, 'Playfair Display', Georgia, serif" font-size="94" font-weight="bold" text-anchor="middle" filter="url(#textDropShadow)" letter-spacing="2">
+      OTT
+    </text>
+  </g>
+</svg>
