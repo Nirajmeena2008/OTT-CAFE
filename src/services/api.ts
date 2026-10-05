@@ -70,6 +70,22 @@ export const api = {
     return { message: json.message, phone: json.phone, otpPreview: json.otpPreview };
   },
 
+  async verifyGoogleAuth(payload: {
+    email: string;
+    name?: string;
+  }): Promise<{ customer: Customer; token: string }> {
+    const res = await fetch(`${BASE_URL}/auth/customer/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!json.success || !json.customer || !json.token) {
+      throw new Error(json.error || 'Failed to authenticate via Google');
+    }
+    return { customer: json.customer, token: json.token };
+  },
+
   async verifyCustomerOtp(payload: {
     email: string;
     phone: string;

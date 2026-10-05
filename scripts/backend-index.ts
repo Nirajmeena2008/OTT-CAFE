@@ -1,7 +1,7 @@
 // Must stay the first import: server/store.ts and server/routes.ts read ADMIN_PASSWORD /
 // OWNER_PASSCODE / MYSQL_* at module load, so .env has to be applied before they evaluate.
-import { loadedEnvFile } from './server/loadEnv';
-import { app } from './server/app';
+import { loadedEnvFile } from '../server/loadEnv';
+import { app } from '../server/app';
 
 console.log(
   loadedEnvFile

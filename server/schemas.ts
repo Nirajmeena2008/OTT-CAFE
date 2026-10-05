@@ -20,7 +20,7 @@ export const UserSchema = z.object({
   email: z.string().email(),
   passwordHash: z.string().min(6),
   role: z.enum(['admin', 'staff', 'customer']).default('customer'),
-  phone: z.string().min(7).max(15).optional(),
+  phone: z.string().trim().regex(/^[0-9+\s-]{8,15}$/, 'Valid mobile number is required').optional().or(z.literal('')),
   createdAt: z.string().datetime().optional(),
 });
 
@@ -41,7 +41,7 @@ export const CustomerSendOtpSchema = z.object({
 
 export const CustomerVerifyOtpSchema = z.object({
   email: z.string().trim().email('Valid email address is required'),
-  phone: z.string().trim().regex(/^[0-9+\s-]{8,15}$/, 'Valid mobile number is required'),
+  phone: z.string().trim().regex(/^[0-9+\s-]{8,15}$/, 'Valid mobile number is required').optional().or(z.literal('')),
   otp: z.string().trim().regex(/^\d{6}$/, 'OTP must be 6 digits'),
   name: z.string().trim().min(2).max(60).optional().or(z.literal('')),
 });

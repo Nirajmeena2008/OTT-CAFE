@@ -390,8 +390,134 @@ apiRouter.get('/menu', (req: Request, res: Response) => {
 });
 
 // ==========================================
-// CUSTOMER AUTHENTICATION (Mobile + Email OTP)
+// CUSTOMER AUTHENTICATION (Mobile + Email OTP & Google)
 // ==========================================
+
+// Google Sign-In endpoint (accepts email/name directly - for backward compatibility)
+apiRouter.post('/auth/customer/google', async (req: Request, res: Response) => {
+  const { email, name } = req.body;
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ success: false, error: 'Valid email is required from Google' });
+  }
+
+  const cleanEmail = email.toLowerCase().trim();
+  let customer = store.customers.find((c) => c.email.toLowerCase() === cleanEmail);
+
+  if (customer) {
+    customer.lastLogin = new Date().toISOString();
+    if (name?.trim()) customer.name = name.trim();
+  } else {
+    customer = {
+      id: generateUniqueId('CUST', (id) => store.customers.some((c) => c.id === id)),
+      name: name?.trim() || 'Google User',
+      phone: '',
+      email: cleanEmail,
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+    };
+    store.customers.push(customer);
+  }
+
+  const b64Payload = Buffer.from(
+    JSON.stringify({
+      id: customer.id,
+      phone: customer.phone,
+      email: customer.email,
+      name: customer.name,
+    })
+  ).toString('base64');
+  const token = `cust_token_${customer.id}_${b64Payload}`;
+  store.customerTokens.set(token, customer);
+
+  return res.json({ success: true, customer, token });
+});
+
+// Google OAuth Callback endpoint (Authorization Code Flow)
+apiRouter.post('/auth/customer/google/callback', async (req: Request, res: Response) => {
+  const { code, redirectUri } = req.body;
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ success: false, error: 'Authorization code is required' });
+  }
+
+  const clientId = process.env.VITE_GOOGLE_CLIENT_ID || '156456110399-atosbsic38uurdjo829johkds9612kjf.apps.googleusercontent.com';
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (!clientSecret) {
+    console.error('GOOGLE_CLIENT_SECRET not configured - falling back to implicit flow not available');
+    return res.status(500).json({
+      success: false,
+      error: 'Google OAuth not fully configured. Please set GOOGLE_CLIENT_SECRET in environment.'
+    });
+  }
+
+  try {
+    // Exchange authorization code for access token
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri || `${process.env.APP_URL || 'http://localhost:3000'}/auth/google/callback`,
+        grant_type: 'authorization_code',
+      }),
+    });
+
+    const tokenData = await tokenRes.json();
+
+    if (!tokenRes.ok || !tokenData.access_token) {
+      console.error('Google token exchange failed:', tokenData);
+      return res.status(400).json({ success: false, error: 'Failed to exchange authorization code' });
+    }
+
+    // Fetch user info from Google
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+
+    const userInfo = await userInfoRes.json();
+
+    if (!userInfoRes.ok || !userInfo.email) {
+      console.error('Google user info fetch failed:', userInfo);
+      return res.status(400).json({ success: false, error: 'Failed to fetch user info from Google' });
+    }
+
+    const cleanEmail = userInfo.email.toLowerCase().trim();
+    let customer = store.customers.find((c) => c.email.toLowerCase() === cleanEmail);
+
+    if (customer) {
+      customer.lastLogin = new Date().toISOString();
+      if (userInfo.name?.trim()) customer.name = userInfo.name.trim();
+    } else {
+      customer = {
+        id: generateUniqueId('CUST', (id) => store.customers.some((c) => c.id === id)),
+        name: userInfo.name?.trim() || 'Google User',
+        phone: '',
+        email: cleanEmail,
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+      };
+      store.customers.push(customer);
+    }
+
+    const b64Payload = Buffer.from(
+      JSON.stringify({
+        id: customer.id,
+        phone: customer.phone,
+        email: customer.email,
+        name: customer.name,
+      })
+    ).toString('base64');
+    const token = `cust_token_${customer.id}_${b64Payload}`;
+    store.customerTokens.set(token, customer);
+
+    return res.json({ success: true, customer, token });
+  } catch (err) {
+    console.error('Google OAuth callback error:', err);
+    return res.status(500).json({ success: false, error: 'Google authentication failed' });
+  }
+});
 
 // Send OTP to customer's mobile number
 apiRouter.post('/auth/customer/send-otp', otpSendLimiter, (req: Request, res: Response) => {
