@@ -28,7 +28,6 @@ import {
   Database,
   Cake,
   ShieldCheck,
-  Bike,
   ShieldAlert,
   Upload,
 } from 'lucide-react';
@@ -36,7 +35,6 @@ import { api } from '../../services/api';
 import { readFileAsDataUrl, MAX_UPLOAD_FILE_SIZE_BYTES } from '../../utils/readFileAsDataUrl';
 import type { MenuItem, PromoBanner, Order, Reservation, CafeInfo, OrderStatus, Category, AdminAccessUser } from '../../types';
 import { OrdersManagement } from './OrdersManagement';
-import { DeliveryPartnersManagement } from './DeliveryPartnersManagement';
 import { RevenueAnalysis } from './RevenueAnalysis';
 import { KitchenOrderTicket } from './KitchenOrderTicket';
 import { CategoryManagementView } from './CategoryManagementView';
@@ -59,7 +57,6 @@ interface AdminDashboardProps {
   onUpdatePromoBanners?: (banners: PromoBanner[]) => void;
   onUpdateCategories?: (cats: Category[]) => void;
   onMenuUpdated?: () => void;
-  onOpenDeliveryPartnerPortal?: () => void;
 }
 
 type AdminTab =
@@ -69,7 +66,6 @@ type AdminTab =
   | 'menu'
   | 'categories'
   | 'banners'
-  | 'delivery_partners'
   | 'revenue'
   | 'database'
   | 'team_access'
@@ -87,7 +83,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdatePromoBanners,
   onUpdateCategories,
   onMenuUpdated,
-  onOpenDeliveryPartnerPortal,
 }) => {
   const isMasterToken = token === '123' || token === 'aura_cafe_admin_sec_token_123' || token.includes('master');
 
@@ -114,7 +109,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (perm.startsWith('finance.')) return canUserAccessModule(currentUser, 'finance', token);
     if (perm.startsWith('staff.')) return canUserAccessModule(currentUser, 'staff', token);
     if (perm.startsWith('marketing.') || perm.startsWith('banners.')) return canUserAccessModule(currentUser, 'marketing', token);
-    if (perm.startsWith('delivery.')) return canUserAccessModule(currentUser, 'delivery', token);
     if (perm.startsWith('reports.')) return canUserAccessModule(currentUser, 'reports', token);
     if (perm.startsWith('settings.')) return canUserAccessModule(currentUser, 'settings', token);
     if (perm.startsWith('database.')) return false;
@@ -131,8 +125,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         return canUserAccessModule(currentUser, 'orders', token);
       case 'cakes':
         return canUserAccessModule(currentUser, 'orders', token) || canUserAccessModule(currentUser, 'menu', token);
-      case 'delivery_partners':
-        return canUserAccessModule(currentUser, 'delivery', token);
       case 'menu':
       case 'categories':
         return canUserAccessModule(currentUser, 'menu', token);
@@ -158,7 +150,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     menu: 'menu.view',
     categories: 'menu.view',
     banners: 'banners.view',
-    delivery_partners: 'delivery.view',
     revenue: 'finance.view_sales',
     database: 'database.view',
     team_access: 'staff.view',
@@ -172,7 +163,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const u: AdminAccessUser = JSON.parse(savedUserStr);
         if (u.role === 'owner' || u.email?.toLowerCase() === 'kumarsatyam5868@gmail.com') return 'orders';
         if (canUserAccessModule(u, 'orders', token)) return 'orders';
-        if (canUserAccessModule(u, 'delivery', token)) return 'delivery_partners';
         if (canUserAccessModule(u, 'menu', token)) return 'menu';
         if (canUserAccessModule(u, 'marketing', token)) return 'banners';
         if (canUserAccessModule(u, 'finance', token) || canUserAccessModule(u, 'reports', token)) return 'revenue';
@@ -1064,25 +1054,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
           )}
 
-          {canAccessTab('delivery_partners') && (
-            <button
-              id="admin-tab-delivery-partners-btn"
-              data-tab-id="delivery_partners"
-              onClick={() => setActiveTab('delivery_partners')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all ${
-                activeTab === 'delivery_partners'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
-              }`}
-            >
-              <Bike className="w-4 h-4" />
-              <span>Delivery Partners</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/20 text-white font-mono">
-                {orders.filter((o) => (o.orderType === 'delivery' || !!o.deliveryAddress) && o.status !== 'delivered' && o.status !== 'cancelled').length}
-              </span>
-            </button>
-          )}
-
           {canAccessTab('cakes') && (
             <button
               id="admin-tab-cakes-btn"
@@ -1354,21 +1325,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             )}
           </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* TAB: DELIVERY PARTNERS & FLEET MANAGEMENT */}
-        {/* ============================================================== */}
-        {activeTab === 'delivery_partners' && canAccessTab('delivery_partners') && (
-          <DeliveryPartnersManagement
-            orders={orders}
-            token={token}
-            onRefreshOrders={loadAllData}
-            onUpdateOrderStatus={handleUpdateOrderStatus}
-            onNotification={showNotification}
-            currentUser={currentUser}
-            onOpenRiderPortal={onOpenDeliveryPartnerPortal}
-          />
         )}
 
         {/* ============================================================== */}

@@ -55,21 +55,21 @@ export const ROLE_CONFIGS: Record<
   owner: {
     label: 'Owner',
     badgeClass: 'bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40',
-    desc: 'Full root authority: Orders, Menu, Inventory, Finance, Staff, Marketing, Delivery, Reports, and Settings.',
+    desc: 'Full root authority: Orders, Menu, Inventory, Finance, Staff, Marketing, Reports, and Settings.',
     icon: Crown,
     defaultPerms: ['*'],
   },
   manager: {
     label: 'Manager',
     badgeClass: 'bg-blue-500/20 text-blue-800 dark:text-blue-300 border-blue-500/40',
-    desc: 'Orders (Full) • Menu (Edit) • Inventory (Manage) • Finance (Limited) • Staff (Limited) • Marketing (View) • Delivery (Manage) • Reports (Operational) • Settings (Limited)',
+    desc: 'Orders (Full) • Menu (Edit) • Inventory (Manage) • Finance (Limited) • Staff (Limited) • Marketing (View) • Reports (Operational) • Settings (Limited)',
     icon: Briefcase,
     defaultPerms: getRoleDefaultPermissions('manager'),
   },
   staff: {
     label: 'Staff',
     badgeClass: 'bg-teal-500/20 text-teal-800 dark:text-teal-300 border-teal-500/40',
-    desc: 'Orders (Manage) • Menu (View) • Inventory (View) • Delivery (View) • Reports (Limited)',
+    desc: 'Orders (Manage) • Menu (View) • Inventory (View) • Reports (Limited)',
     icon: CreditCard,
     defaultPerms: getRoleDefaultPermissions('staff'),
   },
@@ -94,18 +94,11 @@ export const ROLE_CONFIGS: Record<
     icon: Megaphone,
     defaultPerms: getRoleDefaultPermissions('marketing'),
   },
-  delivery: {
-    label: 'Delivery',
-    badgeClass: 'bg-orange-500/20 text-orange-800 dark:text-orange-300 border-orange-500/40',
-    desc: 'Orders (Assigned) • Delivery (Assigned) • Reports (Own)',
-    icon: Bike,
-    defaultPerms: getRoleDefaultPermissions('delivery'),
-  },
   // Backward compatibility aliases
   counter_staff: {
     label: 'Staff',
     badgeClass: 'bg-teal-500/20 text-teal-800 dark:text-teal-300 border-teal-500/40',
-    desc: 'Orders (Manage) • Menu (View) • Inventory (View) • Delivery (View) • Reports (Limited)',
+    desc: 'Orders (Manage) • Menu (View) • Inventory (View) • Reports (Limited)',
     icon: CreditCard,
     defaultPerms: getRoleDefaultPermissions('staff'),
   },
@@ -130,12 +123,19 @@ export const ROLE_CONFIGS: Record<
     icon: Megaphone,
     defaultPerms: getRoleDefaultPermissions('marketing'),
   },
-  delivery_person: {
-    label: 'Delivery',
-    badgeClass: 'bg-orange-500/20 text-orange-800 dark:text-orange-300 border-orange-500/40',
-    desc: 'Orders (Assigned) • Delivery (Assigned) • Reports (Own)',
-    icon: Bike,
+  delivery: {
+    label: 'Delivery Manager',
+    badgeClass: 'bg-blue-500/20 text-blue-800 dark:text-blue-300 border-blue-500/40',
+    desc: 'Delivery Management',
+    icon: ChefHat,
     defaultPerms: getRoleDefaultPermissions('delivery'),
+  },
+  delivery_person: {
+    label: 'Delivery Rider',
+    badgeClass: 'bg-blue-500/20 text-blue-800 dark:text-blue-300 border-blue-500/40',
+    desc: 'Assigned deliveries',
+    icon: ChefHat,
+    defaultPerms: getRoleDefaultPermissions('delivery_person'),
   },
 };
 
@@ -192,17 +192,6 @@ const ALL_PERMISSION_MODULES: {
       { key: 'staff.edit', label: 'Edit Staff Details', desc: 'Update staff roles and assigned shifts' },
       { key: 'staff.deactivate', label: 'Suspend / Deactivate Staff', desc: 'Temporarily pause staff access' },
       { key: 'staff.manage_permissions', label: 'Granular Permissions', desc: 'Assign individual permission overrides' },
-    ],
-  },
-  {
-    module: 'delivery',
-    label: 'Delivery & Logistics',
-    icon: Bike,
-    permissions: [
-      { key: 'delivery.view', label: 'View All Deliveries', desc: 'Inspect all active delivery dispatches' },
-      { key: 'delivery.assign', label: 'Assign Couriers', desc: 'Assign delivery partners to orders' },
-      { key: 'delivery.update_status', label: 'Update Transit Stage', desc: 'Update waypoints, pickup, and delivery' },
-      { key: 'delivery.view_assigned', label: 'View Assigned Deliveries', desc: 'Restricted view for assigned courier only' },
     ],
   },
   {
@@ -789,7 +778,7 @@ export const AdminAccessManagement: React.FC<AdminAccessManagementProps> = ({
                       <span className="font-mono text-stone-500">9 Modules</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-1">
-                      {(['orders', 'menu', 'inventory', 'finance', 'staff', 'marketing', 'delivery', 'reports', 'settings'] as ModuleName[]).map((m) => {
+                      {(['orders', 'menu', 'inventory', 'finance', 'staff', 'marketing', 'reports', 'settings'] as ModuleName[]).map((m) => {
                         const lvl = isRootOwner ? 'Full' : getRoleModuleAccess(normRole, m);
                         const { badgeClass } = getAccessBadgeStyle(lvl);
                         return (
@@ -975,7 +964,7 @@ export const AdminAccessManagement: React.FC<AdminAccessManagementProps> = ({
                   </span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {(['manager', 'staff', 'kitchen', 'accountant', 'marketing', 'delivery'] as AdminRole[]).map((r) => {
+                  {(['manager', 'staff', 'kitchen', 'accountant', 'marketing'] as AdminRole[]).map((r) => {
                     const cfg = ROLE_CONFIGS[r];
                     const isSelected = newRole === r;
                     const RIcon = cfg.icon;
@@ -1014,7 +1003,7 @@ export const AdminAccessManagement: React.FC<AdminAccessManagementProps> = ({
                     <span className="text-[10px] font-mono text-stone-400">9 Canonical Modules</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1 sm:gap-1.5 text-[10px] sm:text-[11px]">
-                    {(['orders', 'menu', 'inventory', 'finance', 'staff', 'marketing', 'delivery', 'reports', 'settings'] as ModuleName[]).map((m) => {
+                    {(['orders', 'menu', 'inventory', 'finance', 'staff', 'marketing', 'reports', 'settings'] as ModuleName[]).map((m) => {
                       const lvl = getRoleModuleAccess(newRole, m);
                       const { badgeClass } = getAccessBadgeStyle(lvl);
                       return (
@@ -1124,7 +1113,7 @@ export const AdminAccessManagement: React.FC<AdminAccessManagementProps> = ({
                   Change Role
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {(['manager', 'staff', 'kitchen', 'accountant', 'marketing', 'delivery'] as AdminRole[]).map((r) => {
+                  {(['manager', 'staff', 'kitchen', 'accountant', 'marketing'] as AdminRole[]).map((r) => {
                     const cfg = ROLE_CONFIGS[r];
                     const isSelected = editRole === r;
                     return (
@@ -1158,7 +1147,7 @@ export const AdminAccessManagement: React.FC<AdminAccessManagementProps> = ({
                     <span className="text-[10px] font-mono text-stone-400">9 Modules</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1.5 text-[11px]">
-                    {(['orders', 'menu', 'inventory', 'finance', 'staff', 'marketing', 'delivery', 'reports', 'settings'] as ModuleName[]).map((m) => {
+                    {(['orders', 'menu', 'inventory', 'finance', 'staff', 'marketing', 'reports', 'settings'] as ModuleName[]).map((m) => {
                       const lvl = getRoleModuleAccess(editRole, m);
                       const { badgeClass } = getAccessBadgeStyle(lvl);
                       return (

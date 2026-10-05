@@ -17,7 +17,6 @@ import {
   Star,
   Flame,
   Cake,
-  Bike,
   ChevronUp,
 } from 'lucide-react';
 import { ThemeProvider } from './context/ThemeContext';
@@ -43,8 +42,6 @@ import { ServiceCommandSection } from './components/ServiceCommandSection';
 import { RecommendedDishesSection } from './components/RecommendedDishesSection';
 import { AdminLoginModal } from './components/admin/AdminLoginModal';
 import { AdminDashboard } from './components/admin/AdminDashboard';
-import { DeliveryPartnerPortal } from './components/delivery/DeliveryPartnerPortal';
-import { ActiveDeliveryFloatingBar } from './components/delivery/ActiveDeliveryFloatingBar';
 import { LocationSection } from './components/LocationSection';
 import { MenuPdfDownloadSection } from './components/MenuPdfDownloadSection';
 import { RestaurantAmbianceGallery } from './components/RestaurantAmbianceGallery';
@@ -125,21 +122,9 @@ function CafeHome() {
   };
 
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
-  const [isDeliveryPartnerOpen, setIsDeliveryPartnerOpen] = useState(false);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [dismissedFloatingOrderId, setDismissedFloatingOrderId] = useState<string | null>(null);
 
-  // Active delivery order tracking for customer (anytime tracking & call partner)
-  const activeDeliveryOrder = useMemo(() => {
-    return (
-      customerOrders.find(
-        (o) =>
-          (o.orderType === 'delivery' || Boolean(o.deliveryAddress)) &&
-          o.status !== 'delivered' &&
-          o.status !== 'cancelled'
-      ) || null
-    );
-  }, [customerOrders]);
   const [adminToken, setAdminToken] = useState<string | null>(() => {
     return sessionStorage.getItem('aura_cafe_admin_token');
   });
@@ -512,9 +497,9 @@ function CafeHome() {
   };
 
   // Show a friendly retry screen instead of the customer site when the initial fetch failed
-  // and left us with nothing to show -- but never for the admin/delivery portals, which load
+  // and left us with nothing to show -- but never for the admin portals, which load
   // their own data independently of this fetch.
-  if (loadError && !isLoading && menuItems.length === 0 && !adminToken && !isDeliveryPartnerOpen) {
+  if (loadError && !isLoading && menuItems.length === 0 && !adminToken) {
     return (
       <div className="min-h-screen w-full bg-cream dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex items-center justify-center px-4">
         <ConnectionErrorState onRetry={fetchData} isRetrying={isLoading} />
@@ -1100,23 +1085,6 @@ function CafeHome() {
         />
       )}
 
-      {/* Floating Live Delivery Tracker (Track Package Anytime & Call Partner) */}
-      {activeDeliveryOrder && !activeOrder && dismissedFloatingOrderId !== activeDeliveryOrder.id && (
-        <ActiveDeliveryFloatingBar
-          activeOrder={activeDeliveryOrder}
-          onOpenTracking={(order) => setActiveOrder(order)}
-          onDismiss={() => setDismissedFloatingOrderId(activeDeliveryOrder.id)}
-        />
-      )}
-
-      {/* Delivery Partner Portal (Rider Runs, Live GPS & NH-48 Route to Customer) */}
-      {isDeliveryPartnerOpen && (
-        <DeliveryPartnerPortal
-          onClose={() => setIsDeliveryPartnerOpen(false)}
-          onOpenOrderDetails={(order) => setActiveOrder(order)}
-        />
-      )}
-
       {/* Admin Login Modal */}
       <AdminLoginModal
         isOpen={isAdminLoginOpen}
@@ -1138,7 +1106,6 @@ function CafeHome() {
           onUpdatePromoBanners={(newBanners) => setPromoBanners(newBanners)}
           onUpdateCategories={(newCats) => setCategories(newCats)}
           onMenuUpdated={fetchData}
-          onOpenDeliveryPartnerPortal={() => setIsDeliveryPartnerOpen(true)}
         />
       )}
 
