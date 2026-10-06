@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import type { Customer } from '../types.js';
 import { api } from '../services/api.js';
 
@@ -53,41 +53,48 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [authReason, setAuthReason] = useState<string>("order");
   const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null);
 
+  const isProcessingGoogleCallback = useRef(false);
+
   // Handle returning from Google Auth redirect (Authorization Code Flow)
   useEffect(() => {
     const handleGoogleCallback = async () => {
+      // Check if this is a Google OAuth callback
+      if (!window.location.pathname.includes('/auth/google/callback')) {
+        return;
+      }
+
+      // Prevent double execution in React 18 Strict Mode
+      if (isProcessingGoogleCallback.current) {
+        return;
+      }
+      isProcessingGoogleCallback.current = true;
+
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
       const storedState = sessionStorage.getItem('google_oauth_state');
       const error = urlParams.get('error');
 
-      // Check if this is a Google OAuth callback
-      if (!window.location.pathname.includes('/auth/google/callback')) {
-        return;
-      }
-
-      // Clear the state immediately
-      sessionStorage.removeItem('google_oauth_state');
-
       // Handle OAuth errors
       if (error) {
         console.error('Google OAuth error:', error);
-        // Redirect back to home with error
-        window.history.replaceState({}, document.title, window.location.pathname.replace('/auth/google/callback', '') + window.location.search);
+        window.location.replace('/?error=oauth_denied');
         return;
       }
 
       // Validate state parameter (CSRF protection)
       if (!state || state !== storedState) {
         console.error('Invalid OAuth state parameter');
-        window.history.replaceState({}, document.title, window.location.pathname.replace('/auth/google/callback', '') + window.location.search);
+        window.location.replace('/?error=oauth_invalid_state');
         return;
       }
 
+      // Clear the state only after validating
+      sessionStorage.removeItem('google_oauth_state');
+
       if (!code) {
         console.error('No authorization code received from Google');
-        window.history.replaceState({}, document.title, window.location.pathname.replace('/auth/google/callback', '') + window.location.search);
+        window.location.replace('/?error=oauth_no_code');
         return;
       }
 
@@ -98,33 +105,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, redirectUri: `${window.location.origin}/auth/google/callback` }),
         });
-        const json = await res.json();
+        
+        let json;
+        try {
+          json = await res.json();
+        } catch (e) {
+          throw new Error('Invalid JSON response from server');
+        }
 
-        if (!json.success || !json.customer || !json.token) {
+        if (!res.ok || !json.success || !json.customer || !json.token) {
           throw new Error(json.error || 'Failed to authenticate via Google');
         }
 
         setCustomer(json.customer);
         setCustomerToken(json.token);
+        
+        // Immediately persist to localStorage before any navigation
+        localStorage.setItem(STORAGE_CUSTOMER_KEY, JSON.stringify(json.customer));
+        localStorage.setItem(STORAGE_TOKEN_KEY, json.token);
         localStorage.removeItem(SIGNED_OUT_FLAG_KEY);
 
-        // Execute pending action (e.g. checkout or reservation)
-        if (pendingCallback) {
-          const cb = pendingCallback;
-          setPendingCallback(null);
-          setTimeout(() => cb(), 100);
-        }
-
-        // Clean URL - redirect to home page
-        window.history.replaceState({}, document.title, window.location.pathname.replace('/auth/google/callback', '') + window.location.search);
+        // Fully reload to the home page to cleanly remount the application state
+        // and remove all OAuth query parameters (like code, state, etc) from the URL bar.
+        window.location.replace('/');
       } catch (err) {
         console.error("Google OAuth callback failed:", err);
-        window.history.replaceState({}, document.title, window.location.pathname.replace('/auth/google/callback', '') + window.location.search);
+        window.location.replace('/?error=oauth_failed');
       }
     };
 
     handleGoogleCallback();
-  }, [pendingCallback]);
+  }, []);
 
 
   // Sync token & customer to localStorage
@@ -187,10 +198,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signInWithGoogle = async (): Promise<boolean> => {
     // Generate OAuth URL for Google Sign-In using Authorization Code Flow (more reliable)
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '156456110399-atosbsic38uurdjo829johkds9612kjf.apps.googleusercontent.com';
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      console.error("Missing VITE_GOOGLE_CLIENT_ID in environment variables");
+      throw new Error("Google login is not configured properly.");
+    }
     const redirectUri = `${window.location.origin}/auth/google/callback`;
     const scope = 'openid email profile';
-    const state = crypto.randomUUID(); // CSRF protection
+    const state = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' 
+      ? crypto.randomUUID() 
+      : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15); // CSRF protection fallback
 
     // Store state for validation on callback
     sessionStorage.setItem('google_oauth_state', state);

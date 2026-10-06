@@ -439,7 +439,10 @@ apiRouter.post('/auth/customer/google/callback', async (req: Request, res: Respo
     return res.status(400).json({ success: false, error: 'Authorization code is required' });
   }
 
-  const clientId = process.env.VITE_GOOGLE_CLIENT_ID || '156456110399-atosbsic38uurdjo829johkds9612kjf.apps.googleusercontent.com';
+  const clientId = process.env.VITE_GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    return res.status(500).json({ success: false, error: 'VITE_GOOGLE_CLIENT_ID is not configured in environment.' });
+  }
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
   if (!clientSecret) {
@@ -511,6 +514,10 @@ apiRouter.post('/auth/customer/google/callback', async (req: Request, res: Respo
     ).toString('base64');
     const token = `cust_token_${customer.id}_${b64Payload}`;
     store.customerTokens.set(token, customer);
+
+    MySQLService.saveCustomer(customer).catch((err) => {
+      console.warn('Background MySQL customer sync from Google OAuth:', err);
+    });
 
     return res.json({ success: true, customer, token });
   } catch (err) {
