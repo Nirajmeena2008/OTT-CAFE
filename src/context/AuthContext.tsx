@@ -212,10 +212,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signInWithGoogle = async (): Promise<boolean> => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const clientId = import.meta.env.GOOGLE_CLIENT_ID;
 
     if (!clientId) {
-      throw new Error('Google Client ID is not configured. Please add VITE_GOOGLE_CLIENT_ID to your .env file.');
+      throw new Error('Google Client ID is not configured. Please add GOOGLE_CLIENT_ID to your .env file.');
     }
 
     // Redirect URI must exactly match one of the "Authorized redirect URIs" registered
