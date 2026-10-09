@@ -46,12 +46,11 @@ import { LocationSection } from './components/LocationSection';
 import { MenuPdfDownloadSection } from './components/MenuPdfDownloadSection';
 import { RestaurantAmbianceGallery } from './components/RestaurantAmbianceGallery';
 import { api } from './services/api';
-import { useBackButton } from './hooks/useBackButton';
 import type { MenuItem, Category, PromoBanner, Order, CafeInfo } from './types';
 
 function CafeHome() {
-  const { totalItemsCount, total, isCartOpen, setIsCartOpen } = useCart();
-  const { customer, customerToken, isAuthModalOpen, closeAuthModal } = useAuth();
+  const { totalItemsCount, total, setIsCartOpen } = useCart();
+  const { customer, customerToken } = useAuth();
 
   // State
   const [categories, setCategories] = useState<Category[]>([]);
@@ -131,22 +130,6 @@ function CafeHome() {
   });
   const [isAdminDashboardOpen, setIsAdminDashboardOpen] = useState(false);
   const [selectedItemDetail, setSelectedItemDetail] = useState<MenuItem | null>(null);
-  
-  // Register mobile back button handlers for all modal/overlay states
-  useBackButton(selectedOfferBanner !== null, () => {
-    setSelectedOfferBanner(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
-  useBackButton(isReservationOpen, () => setIsReservationOpen(false));
-  useBackButton(isCustomerMenuOpen, () => setIsCustomerMenuOpen(false));
-  useBackButton(isCustomCakeOpen, () => setIsCustomCakeOpen(false));
-  useBackButton(showInitialSignup, () => setShowInitialSignup(false));
-  useBackButton(isAdminLoginOpen, () => setIsAdminLoginOpen(false));
-  useBackButton(isAdminDashboardOpen, () => setIsAdminDashboardOpen(false));
-  useBackButton(selectedItemDetail !== null, () => setSelectedItemDetail(null));
-  useBackButton(isCartOpen, () => setIsCartOpen(false));
-  useBackButton(activeOrder !== null, () => setActiveOrder(null));
-  useBackButton(isAuthModalOpen, closeAuthModal);
   const [isScrolled, setIsScrolled] = useState(false);
   // "Back to top" floating button + near-bottom detection, for a bit of scroll-position
   // feedback beyond the sticky header -- appears once you've scrolled well past the hero, and
