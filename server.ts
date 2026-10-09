@@ -1,7 +1,11 @@
+// Must be the very first import: loads .env into process.env before any other module
+// (routes.ts, store.ts) reads ADMIN_PASSWORD, GOOGLE_CLIENT_ID, MYSQL_* etc.
+import './server/loadEnv';
 import path from 'path';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { app } from './server/app';
+
 
 async function startServer() {
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;

@@ -53,6 +53,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [authReason, setAuthReason] = useState<string>("order");
   const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null);
 
+  const googleCallbackHandledRef = useRef(false);
+
+  // Add this
+  const pendingCallbackRef = useRef<(() => void) | null>(null);
+
+  // Keep ref updated whenever pendingCallback changes
+  useEffect(() => {
+    pendingCallbackRef.current = pendingCallback;
+  }, [pendingCallback]);
+
   const isProcessingGoogleCallback = useRef(false);
 
   // Handle returning from Google Auth redirect (Authorization Code Flow)
@@ -105,7 +115,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, redirectUri: `${window.location.origin}/auth/google/callback` }),
         });
-        
+
         let json;
         try {
           json = await res.json();
@@ -119,7 +129,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         setCustomer(json.customer);
         setCustomerToken(json.token);
-        
+
         // Immediately persist to localStorage before any navigation
         localStorage.setItem(STORAGE_CUSTOMER_KEY, JSON.stringify(json.customer));
         localStorage.setItem(STORAGE_TOKEN_KEY, json.token);
@@ -183,11 +193,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.removeItem(SIGNED_OUT_FLAG_KEY);
       setIsAuthModalOpen(false);
 
-      // Execute pending action (e.g. checkout or reservation)
-      if (pendingCallback) {
-        const cb = pendingCallback;
+      // Execute pending action
+      const cb = pendingCallbackRef.current;
+
+      if (cb) {
+        pendingCallbackRef.current = null;
         setPendingCallback(null);
-        setTimeout(() => cb(), 100);
+
+        setTimeout(() => {
+          cb();
+        }, 100);
       }
 
       return true;
@@ -197,29 +212,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signInWithGoogle = async (): Promise<boolean> => {
-    // Generate OAuth URL for Google Sign-In using Authorization Code Flow (more reliable)
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      console.error("Missing VITE_GOOGLE_CLIENT_ID in environment variables");
-      throw new Error("Google login is not configured properly.");
-    }
-    const redirectUri = `${window.location.origin}/auth/google/callback`;
-    const scope = 'openid email profile';
-    const state = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' 
-      ? crypto.randomUUID() 
-      : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15); // CSRF protection fallback
 
-    // Store state for validation on callback
+    if (!clientId) {
+      throw new Error('Google Client ID is not configured. Please add VITE_GOOGLE_CLIENT_ID to your .env file.');
+    }
+
+    // Redirect URI must exactly match one of the "Authorized redirect URIs" registered
+    // in Google Cloud Console for this OAuth 2.0 client.
+    const redirectUri = `${window.location.origin}/auth/google/callback`;
+
+    const scope = 'openid email profile';
+
+    // Generate random state for CSRF protection
+    const state = crypto.randomUUID();
     sessionStorage.setItem('google_oauth_state', state);
 
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}&prompt=select_account&access_type=offline`;
+    const authUrl =
+      `https://accounts.google.com/o/oauth2/v2/auth` +
+      `?client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(scope)}` +
+      `&state=${encodeURIComponent(state)}` +
+      `&prompt=select_account` +
+      `&access_type=offline`;
 
-    // Redirect the browser to Google's authentication page
     window.location.href = authUrl;
 
-    // Return a pending promise since the page is navigating away
-    return new Promise(() => {});
+    // Returns a never-resolving promise because the browser navigates away
+    return new Promise(() => { });
   };
+
 
   const logout = () => {
     setCustomer(null);

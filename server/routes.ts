@@ -73,7 +73,7 @@ function onlySentFields<T extends object>(parsed: T, body: unknown): Partial<T> 
 // must identify exactly one account and be long enough not to be guessed: random 4-digit PINs
 // could collide (the second person then logged in as the first) and had only 9,000 values.
 function generateStaffPasscode(): string {
-  for (;;) {
+  for (; ;) {
     const code = String(randomInt(100000, 1000000));
     if (!store.adminUsers.some((u) => u.passcode === code) && code !== ADMIN_SECRET) return code;
   }
@@ -346,7 +346,7 @@ apiRouter.get('/cafe-info', (req: Request, res: Response) => {
   const status = isCafeAcceptingOrders(store.cafeInfo);
   if (status.open && (store.cafeInfo.isOpen === false || store.cafeInfo.closedUntil)) {
     store.cafeInfo = { ...store.cafeInfo, isOpen: true, closedUntil: null, closedReason: '' };
-    MySQLService.saveCafeInfo(store.cafeInfo).catch(() => {});
+    MySQLService.saveCafeInfo(store.cafeInfo).catch(() => { });
   }
   res.json({ success: true, data: store.cafeInfo });
 });
@@ -433,25 +433,37 @@ apiRouter.post('/auth/customer/google', async (req: Request, res: Response) => {
 });
 
 // Google OAuth Callback endpoint (Authorization Code Flow)
+// IMPORTANT: Uses GOOGLE_CLIENT_ID (not VITE_GOOGLE_CLIENT_ID) because VITE_ prefixed
+// variables are only inlined by the Vite bundler at build time — they are NOT available
+// to the Node.js backend process at runtime. Backend must use plain env var names.
 apiRouter.post('/auth/customer/google/callback', async (req: Request, res: Response) => {
   const { code, redirectUri } = req.body;
   if (!code || typeof code !== 'string') {
     return res.status(400).json({ success: false, error: 'Authorization code is required' });
   }
 
-  const clientId = process.env.VITE_GOOGLE_CLIENT_ID;
-  if (!clientId) {
-    return res.status(500).json({ success: false, error: 'VITE_GOOGLE_CLIENT_ID is not configured in environment.' });
-  }
+  // GOOGLE_CLIENT_ID: the OAuth 2.0 client ID (safe to read server-side)
+  // GOOGLE_CLIENT_SECRET: the OAuth 2.0 client secret (MUST only ever exist server-side)
+  const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
-  if (!clientSecret) {
-    console.error('GOOGLE_CLIENT_SECRET not configured - falling back to implicit flow not available');
+  if (!clientId || !clientSecret) {
+    const missing = [!clientId && 'GOOGLE_CLIENT_ID', !clientSecret && 'GOOGLE_CLIENT_SECRET'].filter(Boolean).join(' and ');
+    console.error(`Google OAuth backend not configured: ${missing} is missing from server environment.`);
     return res.status(500).json({
       success: false,
-      error: 'Google OAuth not fully configured. Please set GOOGLE_CLIENT_SECRET in environment.'
+      error: `Google OAuth backend not configured. Please set ${missing} in your .env file.`,
     });
   }
+
+  // The redirect_uri sent to Google's token endpoint MUST exactly match what was sent
+  // in the initial authorization request AND what is registered in Google Cloud Console.
+  // We trust the value sent by the frontend (which generated it from window.location.origin)
+  // but also have a safe server-side fallback via APP_URL for production environments.
+  const effectiveRedirectUri =
+    (typeof redirectUri === 'string' && redirectUri.trim())
+      ? redirectUri.trim()
+      : `${process.env.APP_URL || 'http://localhost:3000'}/auth/google/callback`;
 
   try {
     // Exchange authorization code for access token
@@ -462,7 +474,7 @@ apiRouter.post('/auth/customer/google/callback', async (req: Request, res: Respo
         code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirectUri || `${process.env.APP_URL || 'http://localhost:3000'}/auth/google/callback`,
+        redirect_uri: effectiveRedirectUri,
         grant_type: 'authorization_code',
       }),
     });
@@ -471,10 +483,10 @@ apiRouter.post('/auth/customer/google/callback', async (req: Request, res: Respo
 
     if (!tokenRes.ok || !tokenData.access_token) {
       console.error('Google token exchange failed:', tokenData);
-      return res.status(400).json({ success: false, error: 'Failed to exchange authorization code' });
+      return res.status(400).json({ success: false, error: 'Failed to exchange authorization code with Google. Check that GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are correct.' });
     }
 
-    // Fetch user info from Google
+    // Fetch user info from Google using the access token
     const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
@@ -515,8 +527,9 @@ apiRouter.post('/auth/customer/google/callback', async (req: Request, res: Respo
     const token = `cust_token_${customer.id}_${b64Payload}`;
     store.customerTokens.set(token, customer);
 
+    // Persist new Google-authenticated customers to MySQL if connected
     MySQLService.saveCustomer(customer).catch((err) => {
-      console.warn('Background MySQL customer sync from Google OAuth:', err);
+      console.warn('Background MySQL customer sync (Google auth):', err);
     });
 
     return res.json({ success: true, customer, token });
@@ -1975,7 +1988,7 @@ apiRouter.get(
         // Purge any lingering fake orders in background
         const fakeOrders = dbOrders.filter(isFakeOrder);
         for (const fake of fakeOrders) {
-          MySQLService.deleteOrder(fake.id).catch(() => {});
+          MySQLService.deleteOrder(fake.id).catch(() => { });
         }
         const realDb = dbOrders.filter((o) => !isFakeOrder(o));
         store.orders = mergeById(realDb, store.orders);
@@ -2015,7 +2028,7 @@ apiRouter.post('/admin/orders/purge-fake', requirePermission('*'), async (req: R
     return true;
   });
   for (const id of [...fakeIds, ...Array.from(FAKE_ORDER_IDS)]) {
-    await MySQLService.deleteOrder(id).catch(() => {});
+    await MySQLService.deleteOrder(id).catch(() => { });
   }
 
   const callerUser = (req as any).adminUser as AdminAccessUser | undefined;
@@ -2049,7 +2062,7 @@ apiRouter.delete('/admin/orders-purge-all', requirePermission('*'), async (req: 
 
   const count = store.orders.length;
   for (const o of store.orders) {
-    await MySQLService.deleteOrder(o.id).catch(() => {});
+    await MySQLService.deleteOrder(o.id).catch(() => { });
   }
   store.orders = [];
 
@@ -2165,9 +2178,9 @@ apiRouter.post('/admin/orders/:id/assign-delivery', requirePermission('orders.as
     arrivedAtPickupAt: initialStage !== 'assigned' ? nowIso : undefined,
     pickedUpAt:
       initialStage === 'picked_up' ||
-      initialStage === 'on_the_way' ||
-      initialStage === 'near_destination' ||
-      initialStage === 'delivered'
+        initialStage === 'on_the_way' ||
+        initialStage === 'near_destination' ||
+        initialStage === 'delivered'
         ? nowIso
         : undefined,
     deliveredAt: initialStage === 'delivered' ? nowIso : undefined,
@@ -2177,26 +2190,26 @@ apiRouter.post('/admin/orders/:id/assign-delivery', requirePermission('orders.as
       initialStage === 'assigned'
         ? 15
         : initialStage === 'arrived_at_pickup'
-        ? 30
-        : initialStage === 'picked_up'
-        ? 50
-        : initialStage === 'on_the_way'
-        ? 78
-        : initialStage === 'near_destination'
-        ? 92
-        : 100,
+          ? 30
+          : initialStage === 'picked_up'
+            ? 50
+            : initialStage === 'on_the_way'
+              ? 78
+              : initialStage === 'near_destination'
+                ? 92
+                : 100,
     currentLocationLabel:
       initialStage === 'assigned'
         ? `Heading towards OTT Restro Kukas`
         : initialStage === 'arrived_at_pickup'
-        ? `At OTT Kitchen Counter`
-        : initialStage === 'picked_up'
-        ? `Leaving OTT Kukas on ${partner.vehicleNumber}`
-        : initialStage === 'on_the_way'
-        ? `Cruising NH-48 Jaipur-Delhi Road`
-        : initialStage === 'near_destination'
-        ? `Arrived in your locality / Gate`
-        : `Delivered at doorstep`,
+          ? `At OTT Kitchen Counter`
+          : initialStage === 'picked_up'
+            ? `Leaving OTT Kukas on ${partner.vehicleNumber}`
+            : initialStage === 'on_the_way'
+              ? `Cruising NH-48 Jaipur-Delhi Road`
+              : initialStage === 'near_destination'
+                ? `Arrived in your locality / Gate`
+                : `Delivered at doorstep`,
     pickupLocation: {
       name: store.cafeInfo.name,
       address: store.cafeInfo.address,
@@ -2294,7 +2307,7 @@ apiRouter.post('/admin/orders/:id/assign-delivery', requirePermission('orders.as
 
   // Full save: the delivery assignment/tracking lives in extra_json, which a status-only
   // update would not write (so it was lost on restart).
-  MySQLService.saveOrder(order).catch(() => {});
+  MySQLService.saveOrder(order).catch(() => { });
 
   res.json({
     success: true,
@@ -2338,14 +2351,14 @@ apiRouter.patch('/admin/orders/:id/delivery-stage', requirePermission('delivery.
       stage === 'assigned'
         ? 15
         : stage === 'arrived_at_pickup'
-        ? 30
-        : stage === 'picked_up'
-        ? 50
-        : stage === 'on_the_way'
-        ? 78
-        : stage === 'near_destination'
-        ? 92
-        : 100;
+          ? 30
+          : stage === 'picked_up'
+            ? 50
+            : stage === 'on_the_way'
+              ? 78
+              : stage === 'near_destination'
+                ? 92
+                : 100;
   }
 
   if (currentLocationLabel) {
@@ -2355,14 +2368,14 @@ apiRouter.patch('/admin/orders/:id/delivery-stage', requirePermission('delivery.
       stage === 'assigned'
         ? `Heading towards OTT Restro Kukas`
         : stage === 'arrived_at_pickup'
-        ? `At OTT Kitchen Counter`
-        : stage === 'picked_up'
-        ? `Leaving OTT Kukas on ${order.deliveryPartner?.vehicleNumber || 'route'}`
-        : stage === 'on_the_way'
-        ? `Cruising NH-48 Jaipur-Delhi Road`
-        : stage === 'near_destination'
-        ? `Arrived in your locality / Gate`
-        : `Delivered at doorstep`;
+          ? `At OTT Kitchen Counter`
+          : stage === 'picked_up'
+            ? `Leaving OTT Kukas on ${order.deliveryPartner?.vehicleNumber || 'route'}`
+            : stage === 'on_the_way'
+              ? `Cruising NH-48 Jaipur-Delhi Road`
+              : stage === 'near_destination'
+                ? `Arrived in your locality / Gate`
+                : `Delivered at doorstep`;
   }
 
   if (stage === 'arrived_at_pickup' && !order.deliveryTracking.arrivedAtPickupAt) {
@@ -2410,7 +2423,7 @@ apiRouter.patch('/admin/orders/:id/delivery-stage', requirePermission('delivery.
 
   // Full save: the delivery assignment/tracking lives in extra_json, which a status-only
   // update would not write (so it was lost on restart).
-  MySQLService.saveOrder(order).catch(() => {});
+  MySQLService.saveOrder(order).catch(() => { });
 
   const callerUser = (req as any).adminUser as AdminAccessUser | undefined;
   recordAuditLog({
@@ -2616,7 +2629,7 @@ apiRouter.post('/delivery/orders/:id/claim', requireDeliveryPartner, async (req:
 
   const nowIso = new Date().toISOString();
   order.deliveryPartner = partner;
-  
+
   if (!order.deliveryTracking) {
     order.deliveryTracking = {
       partner,
@@ -2686,7 +2699,7 @@ apiRouter.post('/delivery/orders/:id/claim', requireDeliveryPartner, async (req:
 
   // Full save: the delivery assignment/tracking lives in extra_json, which a status-only
   // update would not write (so it was lost on restart).
-  MySQLService.saveOrder(order).catch(() => {});
+  MySQLService.saveOrder(order).catch(() => { });
 
   res.json({ success: true, message: `Order #${order.id} claimed successfully`, data: order });
 });
@@ -2779,7 +2792,7 @@ apiRouter.patch('/delivery/orders/:id/stage', requireDeliveryPartner, async (req
 
   // Full save: the delivery assignment/tracking lives in extra_json, which a status-only
   // update would not write (so it was lost on restart).
-  MySQLService.saveOrder(order).catch(() => {});
+  MySQLService.saveOrder(order).catch(() => { });
 
   res.json({ success: true, message: `Delivery stage updated to ${stage}`, data: order });
 });
@@ -3008,7 +3021,7 @@ apiRouter.get('/admin/reservations', requirePermission('reservations.view'), asy
       // Purge fake reservations in background
       const fakeResvs = dbReservations.filter(isFakeReservation);
       for (const fake of fakeResvs) {
-        MySQLService.deleteReservation(fake.id).catch(() => {});
+        MySQLService.deleteReservation(fake.id).catch(() => { });
       }
       const realDb = dbReservations.filter((r) => !isFakeReservation(r));
       store.reservations = mergeById(realDb, store.reservations);
