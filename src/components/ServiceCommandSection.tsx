@@ -35,19 +35,6 @@ interface ServiceSlide {
 
 const SERVICES: ServiceSlide[] = [
   {
-    id: 'book_table',
-    title: 'Book a Table for Any Occasion',
-    shortTitle: 'Book Table',
-    badge: 'Table Reservations',
-    badgeColor: 'bg-emerald-500 text-stone-950',
-    tagline: 'Garden Lawn, AC Family Lounge & Banquet Hall',
-    description: 'Instant confirmation, zero booking charges — reserved in seconds.',
-    ctaText: 'Reserve Table Now',
-    imageUrl:
-      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=80',
-    highlights: ['Zero Booking Fee', 'Instant SMS Confirmation', 'Family AC & Garden Lawn'],
-  },
-  {
     id: 'order_food',
     title: 'Order Food & Sizzlers',
     shortTitle: 'Order Food',
@@ -59,6 +46,19 @@ const SERVICES: ServiceSlide[] = [
     imageUrl:
       'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1600&q=80',
     highlights: ['15-Min Quick Prep', 'Pure Veg Kitchen', 'Car & Doorstep Delivery'],
+  },
+  {
+    id: 'book_table',
+    title: 'Book a Table for Any Occasion',
+    shortTitle: 'Book Table',
+    badge: 'Table Reservations',
+    badgeColor: 'bg-emerald-500 text-stone-950',
+    tagline: 'Garden Lawn, AC Family Lounge & Banquet Hall',
+    description: 'Instant confirmation, zero booking charges — reserved in seconds.',
+    ctaText: 'Reserve Table Now',
+    imageUrl:
+      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=80',
+    highlights: ['Zero Booking Fee', 'Instant SMS Confirmation', 'Family AC & Garden Lawn'],
   },
   {
     id: 'custom_cake',

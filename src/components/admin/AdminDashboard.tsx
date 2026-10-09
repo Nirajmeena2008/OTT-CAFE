@@ -44,6 +44,7 @@ import { MySQLManagement } from './MySQLManagement';
 import { AdminAccessManagement, ROLE_CONFIGS } from './AdminAccessManagement';
 import { canUserAccessModule, normalizeRole, getRoleModuleAccess } from '../../utils/rbacMatrix';
 import { bellSound } from '../../utils/sound';
+import { useBackButton } from '../../hooks/useBackButton';
 
 interface AdminDashboardProps {
   token: string;
@@ -336,6 +337,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     badgeBgColor: 'bg-amber-600',
     targetCategory: 'all',
   });
+
+  // Mobile back button handlers for Admin modals
+  useBackButton(isManageCategoriesOpen, () => setIsManageCategoriesOpen(false));
+  useBackButton(isAddMenuOpen, () => setIsAddMenuOpen(false));
+  useBackButton(isAddBannerOpen, () => setIsAddBannerOpen(false));
+  useBackButton(autoKotOrder !== null, () => setAutoKotOrder(null));
 
   const showNotification = (msg: string) => {
     setNotification(msg);
