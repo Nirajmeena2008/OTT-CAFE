@@ -23,6 +23,7 @@ import {
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { openRazorpayCheckout } from '../services/razorpay';
 import type { Order, OrderType, PaymentMethod } from '../types';
 import { HungryCartIllustration } from './HungryCartIllustration';
 
@@ -59,7 +60,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOrderSuccess }) => {
   const [customerEmail, setCustomerEmail] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [tableNumber, setTableNumber] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('upi');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('razorpay');
 
   const [promoInput, setPromoInput] = useState('');
   const [promoMessage, setPromoMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -200,6 +201,51 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOrderSuccess }) => {
     try {
       setIsSubmitting(true);
 
+      const isOnlineRazorpay = paymentMethod === 'razorpay' || paymentMethod === 'upi' || paymentMethod === 'card';
+
+      let razorpayDetails: {
+        razorpay_order_id: string;
+        razorpay_payment_id: string;
+        razorpay_signature: string;
+      } | null = null;
+
+      if (isOnlineRazorpay) {
+        // STEP 1: BACKEND - Call /api/create-order to create Razorpay Order
+        const amountInPaise = Math.max(100, Math.round(total * 100));
+        const rzpOrder = await api.createRazorpayOrder({
+          amount: amountInPaise,
+          currency: 'INR',
+          receipt: `rcpt_${Date.now()}`,
+          notes: {
+            customer_name: effectiveName,
+            customer_phone: effectivePhone,
+            order_type: orderType,
+          },
+        });
+
+        // STEP 2 & 3: FRONTEND - Open Razorpay Modal & verify signature on completion
+        razorpayDetails = await openRazorpayCheckout({
+          amount: rzpOrder.amount,
+          currency: rzpOrder.currency,
+          order_id: rzpOrder.order_id,
+          name: 'Out of the Town - Restro and Bakery',
+          description: `Order (${items.length} items)`,
+          prefill: {
+            name: effectiveName,
+            contact: effectivePhone,
+            email: effectiveEmail,
+          },
+          onDismiss: () => {
+            setIsSubmitting(false);
+            setOrderError('Payment was cancelled. You can retry whenever you are ready.');
+          },
+          onError: (err: any) => {
+            setIsSubmitting(false);
+            setOrderError(err.message || 'Payment failed. Please try again.');
+          },
+        });
+      }
+
       const payload = {
         customerName: effectiveName,
         customerPhone: effectivePhone,
@@ -216,7 +262,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOrderSuccess }) => {
           image: i.item.image,
         })),
         promoCode: appliedPromo || undefined,
-        paymentMethod,
+        paymentMethod: isOnlineRazorpay ? 'razorpay' : paymentMethod,
+        paymentStatus: (isOnlineRazorpay ? 'paid' : 'pending') as 'paid' | 'pending',
+        razorpayOrderId: razorpayDetails?.razorpay_order_id,
+        razorpayPaymentId: razorpayDetails?.razorpay_payment_id,
+        razorpaySignature: razorpayDetails?.razorpay_signature,
       };
 
       const order = await api.createOrder(payload, customerToken || undefined);
@@ -224,7 +274,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOrderSuccess }) => {
       setIsCartOpen(false);
       onOrderSuccess(order);
     } catch (err: any) {
-      setOrderError(err.message || 'Failed to place order. Please try again.');
+      if (!err.message?.includes('cancelled')) {
+        setOrderError(err.message || 'Failed to place order. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -656,39 +708,36 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOrderSuccess }) => {
                 <span className="block text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2">
                   Payment Method
                 </span>
-                <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="grid grid-cols-2 gap-2 text-xs">
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod('upi')}
-                    className={`py-2 px-2 rounded-xl border font-semibold text-center ${
-                      paymentMethod === 'upi'
-                        ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
-                        : 'border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300'
+                    onClick={() => setPaymentMethod('razorpay')}
+                    className={`py-2.5 px-3 rounded-xl border font-semibold text-left transition-all ${
+                      paymentMethod === 'razorpay' || paymentMethod === 'upi' || paymentMethod === 'card'
+                        ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 ring-2 ring-amber-500/20 shadow-sm'
+                        : 'border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50'
                     }`}
                   >
-                    UPI / QR
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('card')}
-                    className={`py-2 px-2 rounded-xl border font-semibold text-center ${
-                      paymentMethod === 'card'
-                        ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
-                        : 'border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300'
-                    }`}
-                  >
-                    Card
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold">Online Payment</span>
+                      <span className="text-[10px] bg-amber-200 dark:bg-amber-800/60 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded-full font-bold">Recommended</span>
+                    </div>
+                    <span className="block text-[11px] opacity-75 font-normal mt-0.5">UPI, Cards, NetBanking</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('counter')}
-                    className={`py-2 px-2 rounded-xl border font-semibold text-center ${
+                    className={`py-2.5 px-3 rounded-xl border font-semibold text-left transition-all ${
                       paymentMethod === 'counter'
-                        ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
-                        : 'border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300'
+                        ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 ring-2 ring-amber-500/20 shadow-sm'
+                        : 'border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50'
                     }`}
                   >
-                    Pay at Counter
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold">Pay at Counter</span>
+                      <span className="text-[10px] bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 px-1.5 py-0.5 rounded-full font-bold">Offline</span>
+                    </div>
+                    <span className="block text-[11px] opacity-75 font-normal mt-0.5">Cash / QR on table</span>
                   </button>
                 </div>
               </div>
@@ -756,11 +805,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOrderSuccess }) => {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Placing Secure Order...</span>
+                    <span>Processing Payment...</span>
                   </>
                 ) : (
                   <>
-                    <span>Confirm Order • ₹{total.toFixed(2)}</span>
+                    <span>
+                      {paymentMethod === 'counter'
+                        ? `Place Order (Pay at Counter) • ₹${total.toFixed(2)}`
+                        : `Pay Online • ₹${total.toFixed(2)}`}
+                    </span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
