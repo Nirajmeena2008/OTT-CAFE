@@ -31,6 +31,7 @@ import {
   Cake,
   Navigation,
   Send,
+  Copy,
 } from 'lucide-react';
 import type {
   Order,
@@ -394,6 +395,28 @@ export const OrdersManagement: React.FC<OrdersManagementProps> = ({
   // Print KOT
   const handlePrintKot = () => {
     window.print();
+  };
+
+  // Copy order details for WhatsApp sharing
+  const handleCopyForWhatsApp = (order: Order) => {
+    const locationLink = order.deliveryAddress
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`
+      : (order.tableNumber ? `Table ${order.tableNumber} (Dine-in)` : 'Pickup at Counter');
+
+    const message = `📦 *Order Details for WhatsApp Sharing*\n\n` +
+      `👤 *Customer:* ${order.customerName}\n` +
+      `📞 *Phone:* ${order.customerPhone}\n` +
+      `🏠 *Location:* ${locationLink}\n` +
+      `🛒 *Order #:* ${order.id}\n` +
+      `💰 *Total:* ₹${order.total.toFixed(2)}\n` +
+      `📋 *Items:* ${order.items.map(it => `${it.quantity}x ${it.name}`).join(', ')}\n` +
+      `📍 *Type:* ${order.orderType}`;
+
+    navigator.clipboard.writeText(message).then(() => {
+      showToast('Copied to clipboard! Paste in WhatsApp to share.');
+    }).catch(() => {
+      showToast('Failed to copy. Please try manually.');
+    });
   };
 
   return (
@@ -1334,6 +1357,16 @@ export const OrdersManagement: React.FC<OrdersManagementProps> = ({
                             <Download className="w-3.5 h-3.5" />
                           )}
                           <span>Download Bill (PDF)</span>
+                        </button>
+
+                        {/* Copy for WhatsApp Sharing */}
+                        <button
+                          onClick={() => handleCopyForWhatsApp(ord)}
+                          className="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 text-xs font-semibold border border-emerald-200 dark:border-emerald-900 cursor-pointer flex items-center gap-1 transition-colors"
+                          title="Copy customer name, phone & location for WhatsApp sharing"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy for WhatsApp</span>
                         </button>
 
                         {/* Details / KOT Modal Button */}
