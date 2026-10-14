@@ -36,7 +36,7 @@ export interface CartItem {
 
 export type OrderType = 'delivery' | 'pickup' | 'dine-in';
 export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
-export type PaymentMethod = 'cash' | 'card' | 'upi' | 'counter';
+export type PaymentMethod = 'cash' | 'card' | 'upi' | 'counter' | 'razorpay';
 
 export type DeliveryPartnerVehicle = 'bike' | 'scooter' | 'van' | 'electric_ev' | 'car';
 
@@ -197,6 +197,41 @@ export interface Order {
   deliveryNotes?: string;
   deliveryPartner?: DeliveryPartner;
   deliveryTracking?: DeliveryTracking;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
+}
+
+export interface RazorpayCreateOrderRequest {
+  amount: number; // in paise (minimum 100)
+  currency?: string; // defaults to 'INR'
+  receipt?: string;
+  notes?: Record<string, string>;
+}
+
+export interface RazorpayCreateOrderResponse {
+  success?: boolean;
+  order_id: string;
+  amount: number;
+  currency: string;
+  receipt?: string;
+  key_id?: string;
+}
+
+export interface RazorpayVerifyPaymentRequest {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  order_id?: string;
+  payment_id?: string;
+  signature?: string;
+}
+
+export interface RazorpayVerifyPaymentResponse {
+  success: boolean;
+  message?: string;
+  order_id?: string;
+  payment_id?: string;
 }
 
 // The restaurant has exactly three bookable areas -- Out of the Town (Kukas, NH-48) has no

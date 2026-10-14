@@ -189,10 +189,19 @@ export class CafeStore {
       isActive: true,
       notes: 'Principal Owner & Head of Out of the Town (OTT) - Full Authority',
     },
-    // No other accounts are seeded. Demo staff (manager "2026", counter "3030", kitchen
-    // "4040", ...) used to ship here, and since the login form accepts a passcode on its own,
-    // typing "2026" gave anyone General Manager access to the live site. The owner adds real
-    // staff and riders from Team & Access Management; those are persisted to MySQL.
+    {
+      id: 'admin-niraj-meena',
+      email: 'nirajmeenajaipur.2008@gmail.com',
+      name: 'Niraj Meena (Admin)',
+      role: 'owner',
+      restaurantId: RESTAURANT_ID,
+      permissions: ['*'],
+      passcode: process.env.ADMIN_NIRAJ_PASSCODE || '2008',
+      addedBy: 'Founder (System)',
+      addedAt: '2026-01-01T00:00:00.000Z',
+      isActive: true,
+      notes: 'Restaurant Administrator - Full Root Authority',
+    },
   ];
 
   // System-wide Audit Logs for compliance, security & tracking

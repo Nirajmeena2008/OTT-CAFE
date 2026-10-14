@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   MapPin,
   LocateFixed,
+  Map,
   User,
   Phone,
   LogOut,
@@ -26,6 +27,8 @@ import { api } from '../services/api';
 import { openRazorpayCheckout } from '../services/razorpay';
 import type { Order, OrderType, PaymentMethod } from '../types';
 import { HungryCartIllustration } from './HungryCartIllustration';
+import { DeliveryLocationMap } from './DeliveryLocationMap';
+import { RESTAURANT_LOCATION } from '../utils/googleMaps';
 
 interface CartDrawerProps {
   onOrderSuccess: (order: Order) => void;
@@ -71,6 +74,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOrderSuccess }) => {
   const [isLocatingAddress, setIsLocatingAddress] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Exact-location map (draggable pin) state — lets the customer correct GPS
+  // error to their precise gate/door before placing a delivery order.
+  const [isMapVisible, setIsMapVisible] = useState(false);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+  const [isPinResolving, setIsPinResolving] = useState(false);
 
   // Field validation error tracking for necessary fields
   const [fieldErrors, setFieldErrors] = useState<{
@@ -119,6 +128,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOrderSuccess }) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           setCoords({ lat, lng });
+          setLocationAccuracy(position.coords.accuracy ?? null);
+          setIsMapVisible(true);
 
           const res = await api.reverseGeocodeLocation(lat, lng);
           if (res && res.formattedAddress) {
@@ -149,6 +160,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOrderSuccess }) => {
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
     );
+  };
+
+  // Customer dragged the delivery pin (or tapped the map) — reverse geocode the
+  // dropped point into the address textarea so the kitchen gets a precise address.
+  const handlePinChange = async (lat: number, lng: number) => {
+    setCoords({ lat, lng });
+    setIsPinResolving(true);
+    try {
+      const res = await api.reverseGeocodeLocation(lat, lng);
+      if (res && res.formattedAddress) {
+        setDeliveryAddress(res.formattedAddress);
+        setFieldErrors((prev) => ({ ...prev, address: undefined }));
+        setLocationError(null);
+      } else {
+        setLocationError('Could not resolve the pinned spot into a street address. Please type it manually.');
+      }
+    } catch {
+      setLocationError('Could not update the address for the moved pin. Please type it manually.');
+    } finally {
+      setIsPinResolving(false);
+    }
   };
 
   const validateRequiredFields = (overrideName?: string, overridePhone?: string): boolean => {
@@ -650,6 +682,31 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOrderSuccess }) => {
                           <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
                           <span className="flex-1">{locationError}</span>
                         </div>
+                      )}
+
+                      {/* Manual map picker entry — also the fallback when GPS is denied/unavailable */}
+                      {!isMapVisible && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsMapVisible(true);
+                            setLocationError(null);
+                          }}
+                          className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl border border-dashed border-amber-400/70 dark:border-amber-700/50 text-[10.5px] font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-50/70 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
+                        >
+                          <Map className="w-3.5 h-3.5" />
+                          {coords ? 'Adjust exact location on map' : 'GPS blocked? Drop a pin on the map instead'}
+                        </button>
+                      )}
+
+                      {/* Draggable-pin Google map — the customer's confirmed exact delivery point */}
+                      {isMapVisible && (
+                        <DeliveryLocationMap
+                          coords={coords ?? RESTAURANT_LOCATION}
+                          accuracyMeters={locationAccuracy}
+                          isResolving={isPinResolving}
+                          onPinChange={handlePinChange}
+                        />
                       )}
 
                       <textarea

@@ -110,7 +110,11 @@ export const CreateOrderSchema = z
     tableNumber: z.string().max(20).optional(),
     items: z.array(OrderItemSchema).min(1, 'Order must contain at least 1 item'),
     promoCode: z.string().max(30).optional(),
-    paymentMethod: z.enum(['cash', 'card', 'upi', 'counter']).default('upi'),
+    paymentMethod: z.enum(['cash', 'card', 'upi', 'counter', 'razorpay']).default('upi'),
+    paymentStatus: z.enum(['pending', 'paid']).optional(),
+    razorpayOrderId: z.string().optional(),
+    razorpayPaymentId: z.string().optional(),
+    razorpaySignature: z.string().optional(),
     isCustomCake: z.boolean().optional(),
     customCakeDetails: CustomCakeDetailsSchema.optional(),
     specialInstructions: z.string().max(500).optional(),
@@ -260,3 +264,46 @@ export const PromoBannerSchema = z.object({
 });
 
 export type PromoBannerInput = z.infer<typeof PromoBannerSchema>;
+
+// ==========================================
+// 6. Razorpay Standard Checkout Schemas
+// ==========================================
+export const RazorpayCreateOrderSchema = z.object({
+  amount: z
+    .union([z.number(), z.string()])
+    .transform((val) => {
+      const num = typeof val === 'number' ? val : Number(val);
+      return Math.round(num);
+    })
+    .refine((val) => !isNaN(val) && val >= 100, {
+      message: 'Amount must be at least 100 paise',
+    }),
+  currency: z.string().default('INR').optional(),
+  receipt: z.string().max(60).optional(),
+  notes: z.record(z.string(), z.string()).optional(),
+});
+
+export type RazorpayCreateOrderInput = z.infer<typeof RazorpayCreateOrderSchema>;
+
+export const RazorpayVerifyPaymentSchema = z
+  .object({
+    razorpay_order_id: z.string().optional(),
+    order_id: z.string().optional(),
+    razorpay_payment_id: z.string().optional(),
+    payment_id: z.string().optional(),
+    razorpay_signature: z.string().optional(),
+    signature: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      const oId = (data.razorpay_order_id || data.order_id || '').trim();
+      const pId = (data.razorpay_payment_id || data.payment_id || '').trim();
+      const sig = (data.razorpay_signature || data.signature || '').trim();
+      return !!(oId && pId && sig);
+    },
+    {
+      message: 'Missing required payment verification fields (order_id, payment_id, signature)',
+    }
+  );
+
+export type RazorpayVerifyPaymentInput = z.infer<typeof RazorpayVerifyPaymentSchema>;

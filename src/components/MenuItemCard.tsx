@@ -139,15 +139,17 @@ export const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, onOpenDetails 
                 (e.target as HTMLImageElement).src =
                   'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80';
               }}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${
+                item.isAvailable ? '' : 'grayscale'
+              }`}
             />
           </div>
 
           {/* Overlay ADD / Counter Button */}
           <div className="absolute -bottom-3 w-[88%] z-10">
             {!item.isAvailable ? (
-              <div className="w-full py-1.5 bg-stone-300 dark:bg-stone-700 text-stone-600 dark:text-stone-400 text-xs font-bold rounded-xl text-center shadow-xs cursor-not-allowed uppercase tracking-wider">
-                Sold Out
+              <div className="w-full py-1 px-1 bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-300 text-[10px] font-bold rounded-xl text-center shadow-xs cursor-not-allowed leading-tight">
+                Currently Unavailable
               </div>
             ) : quantity === 0 ? (
               <button

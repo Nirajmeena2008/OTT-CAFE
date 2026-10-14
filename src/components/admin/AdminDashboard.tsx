@@ -30,6 +30,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Upload,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { readFileAsDataUrl, MAX_UPLOAD_FILE_SIZE_BYTES } from '../../utils/readFileAsDataUrl';
@@ -251,6 +253,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Auto KOT & Bell Sound State
   const [autoKotOrder, setAutoKotOrder] = useState<Order | null>(null);
   const [isSoundMuted, setIsSoundMuted] = useState(false);
+
+  // Cafe open/close toggle state
+  const [isCafeOpen, setIsCafeOpen] = useState(cafeInfo?.isOpen ?? true);
+  const [isUpdatingCafeStatus, setIsUpdatingCafeStatus] = useState(false);
+
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
   const isInitialOrdersLoadRef = useRef<boolean>(true);
 
@@ -786,7 +793,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const nextItems = prevItems.map((m) => (m.id === item.id ? updated : m));
     setMenuItems(nextItems);
     onUpdateMenuItems?.(nextItems);
-    showNotification(`${item.name} marked ${!item.isAvailable ? 'Available' : 'Sold Out'}`);
+    showNotification(`${item.name} marked ${!item.isAvailable ? 'Available' : 'Currently Unavailable'}`);
 
     try {
       await api.updateMenuItem(token, item.id, { isAvailable: !item.isAvailable });
@@ -938,6 +945,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             }`}
           >
             {isSoundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
+
+          {/* Cafe Open/Close Toggle - Controls Online Orders & Cake Orders */}
+          <button
+            type="button"
+            onClick={async () => {
+              const newStatus = !isCafeOpen;
+              setIsCafeOpen(newStatus);
+              setIsUpdatingCafeStatus(true);
+              try {
+                await api.updateCafeInfo(token, { isOpen: newStatus });
+                // Sync with parent component
+                setCafeInfo(prev => prev ? { ...prev, isOpen: newStatus } : null);
+                showNotification(newStatus ? 'Online & Cake Orders: ENABLED' : 'Online & Cake Orders: DISABLED');
+              } catch (err: any) {
+                setIsCafeOpen(!newStatus); // Revert on error
+                showNotification('Failed: ' + err.message);
+              } finally {
+                setIsUpdatingCafeStatus(false);
+              }
+            }}
+            disabled={isUpdatingCafeStatus}
+            title={isCafeOpen ? 'Disable Online & Cake Orders' : 'Enable Online & Cake Orders'}
+            className={`p-2 rounded-xl border text-xs font-semibold flex items-center justify-center cursor-pointer transition-colors shrink-0 ${isUpdatingCafeStatus ? 'opacity-50 cursor-not-allowed' : ''} ${
+              isCafeOpen
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 hover:bg-emerald-100'
+                : 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/40 dark:border-rose-900 hover:bg-rose-100'
+            }`}
+          >
+            {isUpdatingCafeStatus ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : isCafeOpen ? (
+              <ToggleRight className="w-4 h-4" />
+            ) : (
+              <ToggleLeft className="w-4 h-4" />
+            )}
           </button>
 
           {/* Cloud Auto-Sync badge - Visible only if database.view permission. Its color
@@ -1535,7 +1578,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   )}
                   <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-stone-100 dark:bg-stone-800">
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className={`w-full h-full object-cover ${item.isAvailable ? '' : 'grayscale'}`}
+                    />
                   </div>
                   <div className={`flex-1 min-w-0 flex flex-col justify-between ${isBulkDiscountMode ? 'pointer-events-none' : ''}`}>
                     <div>
@@ -1576,16 +1623,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     <div className="flex items-center justify-between pt-2 border-t border-stone-100 dark:border-stone-800">
                       <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => handleToggleAvailability(item)}
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md cursor-pointer ${
-                            item.isAvailable
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                              : 'bg-stone-200 text-stone-600 dark:bg-stone-800 dark:text-stone-400'
-                          }`}
-                        >
-                          {item.isAvailable ? 'In Stock' : 'Out of Stock'}
-                        </button>
+                        {/* Availability toggle switch — OFF shows the dish as "Currently Unavailable"
+                            to customers (black & white image, cannot be ordered) */}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={item.isAvailable}
+                            aria-label={`${item.isAvailable ? 'Turn off' : 'Turn on'} ordering for ${item.name}`}
+                            onClick={() => handleToggleAvailability(item)}
+                            title={
+                              item.isAvailable
+                                ? 'ON — customers can order this dish. Click to turn OFF.'
+                                : 'OFF — customers see "Currently Unavailable". Click to turn ON.'
+                            }
+                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-candy-cherry-500/50 ${
+                              item.isAvailable ? 'bg-emerald-500' : 'bg-stone-300 dark:bg-stone-700'
+                            }`}
+                          >
+                            <span
+                              className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                                item.isAvailable ? 'translate-x-4' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+                          <span
+                            className={`text-[10px] font-bold ${
+                              item.isAvailable
+                                ? 'text-emerald-700 dark:text-emerald-300'
+                                : 'text-stone-500 dark:text-stone-400'
+                            }`}
+                          >
+                            {item.isAvailable ? 'Available' : 'Unavailable'}
+                          </span>
+                        </div>
 
                         <button
                           type="button"

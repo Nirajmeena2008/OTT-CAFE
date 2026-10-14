@@ -6,7 +6,7 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
-    envPrefix: ['VITE_', 'GOOGLE_CLIENT_ID'],
+    envPrefix: ['VITE_', 'GOOGLE_CLIENT_ID', 'GOOGLE_PROJECT_ID', 'RAZORPAY_KEY_ID'],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

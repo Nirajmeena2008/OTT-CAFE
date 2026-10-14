@@ -1,6 +1,8 @@
+import './loadEnv';
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { apiRouter } from './routes';
+import { createOrderHandler, verifyPaymentHandler } from './razorpay';
 import { generalApiLimiter, secondRateLimiter, staffApiLimiter, perUserRateLimit } from './middleware/rateLimiter';
 import { sanitizeInputs } from './middleware/sanitize';
 
@@ -75,10 +77,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
         "img-src 'self' data: https:",
         "font-src 'self' data:",
         "style-src 'self' 'unsafe-inline'",
-        "script-src 'self'",
-        "connect-src 'self'",
-        // The location section embeds a Google Maps iframe.
-        "frame-src https://www.google.com https://maps.google.com",
+        "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com",
+        "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com",
+        // The location section embeds a Google Maps iframe; Razorpay checkout uses api.razorpay.com iframe.
+        "frame-src https://www.google.com https://maps.google.com https://api.razorpay.com",
         "object-src 'none'",
         "base-uri 'self'",
       ].join('; ')
@@ -149,6 +151,10 @@ app.get('/health', (req: Request, res: Response) => {
 
 // Primary API Router mounted at /api
 app.use('/api', apiRouter);
+
+// Root endpoints for framework-equivalent direct routing (/create-order & /verify-payment)
+app.post('/create-order', createOrderHandler);
+app.post('/verify-payment', verifyPaymentHandler);
 
 // Fallback routing for Vercel Serverless rewrites where the /api prefix may be stripped.
 // Only engage this on Vercel itself: apiRouter now ends in its own catch-all 404 (see

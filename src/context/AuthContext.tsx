@@ -16,6 +16,8 @@ interface AuthContextType {
   logout: () => void;
   requireAuth: (onSuccessAction: () => void, reason?: string) => void;
   updateCustomerProfile: (updated: Partial<Customer>) => void;
+  adminToken: string | null;
+  setAdminToken: (token: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,6 +54,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authReason, setAuthReason] = useState<string>("order");
   const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null);
+  const [adminToken, setAdminToken] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem('aura_cafe_admin_token');
+    } catch {
+      return null;
+    }
+  });
 
   const googleCallbackHandledRef = useRef(false);
 
@@ -68,8 +77,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Handle returning from Google Auth redirect (Authorization Code Flow)
   useEffect(() => {
     const handleGoogleCallback = async () => {
-      // Check if this is a Google OAuth callback
-      if (!window.location.pathname.includes('/auth/google/callback')) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const state = urlParams.get('state');
+      const storedState = sessionStorage.getItem('google_oauth_state');
+      const error = urlParams.get('error');
+
+      // Check if this is a Google OAuth callback:
+      // Either direct callback path (/auth/google/callback) or landing on root with OAuth code/state
+      const isCallbackPath = window.location.pathname.includes('/auth/google/callback');
+      const hasOAuthParams = Boolean(code || error || (state && storedState));
+
+      if (!isCallbackPath && !hasOAuthParams) {
         return;
       }
 
@@ -78,12 +97,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
       isProcessingGoogleCallback.current = true;
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const state = urlParams.get('state');
-      const storedState = sessionStorage.getItem('google_oauth_state');
-      const error = urlParams.get('error');
 
       // Handle OAuth errors
       if (error) {
@@ -102,6 +115,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Clear the state only after validating
       sessionStorage.removeItem('google_oauth_state');
 
+      // Match the exact redirectUri used during the authorization request
+      const redirectUri =
+        sessionStorage.getItem('google_oauth_redirect_uri') ||
+        (window.location.origin.includes('ottcafe.in')
+          ? 'https://ottcafe.in'
+          : `${window.location.origin}/auth/google/callback`);
+      sessionStorage.removeItem('google_oauth_redirect_uri');
+
       if (!code) {
         console.error('No authorization code received from Google');
         window.location.replace('/?error=oauth_no_code');
@@ -113,7 +134,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || '/api'}/auth/customer/google/callback`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, redirectUri: `${window.location.origin}/auth/google/callback` }),
+          body: JSON.stringify({ code, redirectUri }),
         });
 
         let json;
@@ -129,6 +150,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         setCustomer(json.customer);
         setCustomerToken(json.token);
+
+        // Store admin token if user has admin access
+        if (json.isAdmin && json.adminToken) {
+          setAdminToken(json.adminToken);
+          sessionStorage.setItem('aura_cafe_admin_token', json.adminToken);
+        }
 
         // Immediately persist to localStorage before any navigation
         localStorage.setItem(STORAGE_CUSTOMER_KEY, JSON.stringify(json.customer));
@@ -220,13 +247,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Redirect URI must exactly match one of the "Authorized redirect URIs" registered
     // in Google Cloud Console for this OAuth 2.0 client.
-    const redirectUri = `${window.location.origin}/auth/google/callback`;
+    // In the credentials document, authorized redirect_uris is ["https://ottcafe.in"].
+    // For local dev, fall back to `${window.location.origin}/auth/google/callback`.
+    const redirectUri = window.location.origin.includes('ottcafe.in')
+      ? 'https://ottcafe.in'
+      : `${window.location.origin}/auth/google/callback`;
 
     const scope = 'openid email profile';
 
     // Generate random state for CSRF protection
     const state = crypto.randomUUID();
     sessionStorage.setItem('google_oauth_state', state);
+    sessionStorage.setItem('google_oauth_redirect_uri', redirectUri);
 
     const authUrl =
       `https://accounts.google.com/o/oauth2/v2/auth` +
@@ -277,6 +309,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         logout,
         requireAuth,
         updateCustomerProfile,
+        adminToken,
+        setAdminToken,
       }}
     >
       {children}

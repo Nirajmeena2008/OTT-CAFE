@@ -116,7 +116,7 @@ export const TopPromotionalHero: React.FC<TopPromotionalHeroProps> = ({
       (error) => {
         setCustomerLocationState(error.code === error.PERMISSION_DENIED ? 'denied' : 'error');
       },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 5 * 60 * 1000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   };
 

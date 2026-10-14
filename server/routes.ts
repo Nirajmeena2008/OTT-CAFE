@@ -42,8 +42,20 @@ import {
   sanitizePermissionGrant,
   sanitizeOrderForKitchen,
 } from './rbac';
+import {
+  createOrderHandler,
+  verifyPaymentHandler,
+  getRazorpayConfigHandler,
+} from './razorpay';
 
 export const apiRouter = Router();
+
+// ==========================================
+// Razorpay Standard Checkout Routes
+// ==========================================
+apiRouter.post('/create-order', createOrderHandler);
+apiRouter.post('/verify-payment', verifyPaymentHandler);
+apiRouter.get('/razorpay/config', getRazorpayConfigHandler);
 
 // Generate a collision-safe ID: a random 4-digit suffix is fine at small scale, but with
 // only 9,000 possible values it will eventually repeat and silently merge two customers'
@@ -463,7 +475,7 @@ apiRouter.post('/auth/customer/google/callback', async (req: Request, res: Respo
   const effectiveRedirectUri =
     (typeof redirectUri === 'string' && redirectUri.trim())
       ? redirectUri.trim()
-      : `${process.env.APP_URL || 'http://localhost:3000'}/auth/google/callback`;
+      : (process.env.APP_URL || 'https://ottcafe.in');
 
   try {
     // Exchange authorization code for access token
@@ -516,6 +528,18 @@ apiRouter.post('/auth/customer/google/callback', async (req: Request, res: Respo
       store.customers.push(customer);
     }
 
+    // Check if this email has admin access
+    const adminUser = store.adminUsers.find((u) => u.email.toLowerCase().trim() === cleanEmail && u.isActive);
+    let adminToken = undefined;
+    if (adminUser) {
+      const sessionToken = `staff_session_${adminUser.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      adminUser.sessionToken = sessionToken;
+      adminUser.lastLogin = new Date().toISOString();
+      adminUser.lastActiveAt = new Date().toISOString();
+      persistTeam();
+      adminToken = sessionToken;
+    }
+
     const b64Payload = Buffer.from(
       JSON.stringify({
         id: customer.id,
@@ -532,7 +556,7 @@ apiRouter.post('/auth/customer/google/callback', async (req: Request, res: Respo
       console.warn('Background MySQL customer sync (Google auth):', err);
     });
 
-    return res.json({ success: true, customer, token });
+    return res.json({ success: true, customer, token, adminToken, isAdmin: !!adminUser });
   } catch (err) {
     console.error('Google OAuth callback error:', err);
     return res.status(500).json({ success: false, error: 'Google authentication failed' });
@@ -722,6 +746,30 @@ apiRouter.get('/maps/reverse-geocode', async (req: Request, res: Response) => {
     return res.status(400).json({
       success: false,
       error: 'Valid latitude and longitude coordinates are required.',
+    });
+  }
+
+  // Manual override for known locations (restaurant location)
+  // OTT Restro & Bakery: 27.0543, 75.8988 (SP 41 B, NH-48, Kukas, Jaipur)
+  const OTT_LAT = 27.0543;
+  const OTT_LNG = 75.8988;
+  const distanceFromOTT = Math.sqrt(
+    Math.pow(lat - OTT_LAT, 2) + Math.pow(lng - OTT_LNG, 2)
+  ) * 111; // approximate km per degree
+
+  if (distanceFromOTT < 0.5) { // Within 500 meters of restaurant
+    return res.json({
+      success: true,
+      data: {
+        formattedAddress: 'Out of the Town - Restro and Bakery, SP 41 B, Near RIICO Industrial Area & Arya College of Industrial Training, Kukas, Delhi-Jaipur Road (NH-48), Jaipur, Rajasthan 302038',
+        street: 'SP 41 B, NH-48, Kukas',
+        sublocality: 'Kukas',
+        city: 'Jaipur',
+        state: 'Rajasthan',
+        postalCode: '302038',
+        location: { lat, lng },
+        source: 'manual',
+      },
     });
   }
 
@@ -976,7 +1024,10 @@ apiRouter.post('/orders', orderLimiter, (req: Request, res: Response) => {
     total,
     promoCode: data.promoCode,
     paymentMethod: data.paymentMethod,
-    paymentStatus: 'paid', // Simulated immediate processing
+    paymentStatus: data.paymentStatus || (data.paymentMethod === 'counter' ? 'pending' : 'paid'),
+    razorpayOrderId: data.razorpayOrderId,
+    razorpayPaymentId: data.razorpayPaymentId,
+    razorpaySignature: data.razorpaySignature,
     status: 'pending',
     statusNotes: data.isCustomCake
       ? `Custom cake request for ${data.customCakeDetails?.occasion || 'celebration'} (${data.customCakeDetails?.weightKg || 1}kg, ${data.customCakeDetails?.flavor || 'special'}). Event: ${data.customCakeDetails?.targetDate || ''}`
@@ -1374,6 +1425,30 @@ apiRouter.get('/admin/team', requirePermission('staff.view'), (req: Request, res
     data: store.adminUsers,
     ownerEmail: OWNER_EMAIL,
     restaurantId: RESTAURANT_ID,
+  });
+});
+
+// Get all customers (Protected by staff.view) - for debugging/admin purposes
+apiRouter.get('/admin/customers', requirePermission('staff.view'), (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: store.customers.map(c => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      email: c.email,
+      createdAt: c.createdAt,
+      lastLogin: c.lastLogin,
+    })),
+    activeSessions: Array.from(store.customerTokens.entries()).map(([token, cust]) => ({
+      token: token.substring(0, 20) + '...',
+      customerId: cust.id,
+      name: cust.name,
+      phone: cust.phone,
+      email: cust.email,
+    })),
+    totalCustomers: store.customers.length,
+    totalActiveSessions: store.customerTokens.size,
   });
 });
 

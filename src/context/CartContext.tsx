@@ -53,6 +53,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // cart. requireAuth() adds the item immediately if already signed in; otherwise it opens
   // the sign-in modal and adds the item automatically once OTP verification succeeds.
   const addItem = (item: MenuItem) => {
+    // Dishes toggled OFF (unavailable) can never be added to the cart, no matter
+    // which button or flow tries to.
+    if (!item.isAvailable) return;
     requireAuth(() => {
       setItems((prev) => {
         const existing = prev.find((i) => i.item.id === item.id);

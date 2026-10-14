@@ -47,6 +47,12 @@ import { MenuPdfDownloadSection } from './components/MenuPdfDownloadSection';
 import { RestaurantAmbianceGallery } from './components/RestaurantAmbianceGallery';
 import { api } from './services/api';
 import type { MenuItem, Category, PromoBanner, Order, CafeInfo } from './types';
+import { 
+  useModalHistory, 
+  useViewHistory, 
+  useExpandedHistory,
+  useBrowserHistory 
+} from './hooks/useBrowserHistory';
 
 function CafeHome() {
   const { totalItemsCount, total, setIsCartOpen } = useCart();
@@ -142,6 +148,19 @@ function CafeHome() {
   // keeps a stable reference until its own deps change.
   const MENU_PAGE_SIZE = 12;
   const [visibleMenuCount, setVisibleMenuCount] = useState(MENU_PAGE_SIZE);
+
+  // ==================== BROWSER HISTORY MANAGEMENT ====================
+  // Handle back button on mobile/desktop for modals, views, and expanded sections
+  useModalHistory('reservation', isReservationOpen, () => setIsReservationOpen(false));
+  useModalHistory('customer-menu', isCustomerMenuOpen, () => setIsCustomerMenuOpen(false));
+  useModalHistory('custom-cake', isCustomCakeOpen, () => setIsCustomCakeOpen(false));
+  useModalHistory('initial-signup', showInitialSignup, handleCloseInitialSignup);
+  useModalHistory('admin-login', isAdminLoginOpen, () => setIsAdminLoginOpen(false));
+  useModalHistory('order-status', !!activeOrder, () => setActiveOrder(null));
+  useModalHistory('item-detail', !!selectedItemDetail, () => setSelectedItemDetail(null));
+  
+  useViewHistory('offer-combo', !!selectedOfferBanner, () => setSelectedOfferBanner(null));
+  useViewHistory('admin-dashboard', isAdminDashboardOpen, () => setIsAdminDashboardOpen(false));
 
   useEffect(() => {
     // Scroll fires far more often than the browser can paint, especially on touch devices
@@ -1127,7 +1146,9 @@ function CafeHome() {
               <img
                 src={selectedItemDetail.image}
                 alt={selectedItemDetail.name}
-                className="w-full h-full object-cover"
+                className={`w-full h-full object-cover ${
+                  selectedItemDetail.isAvailable ? '' : 'grayscale'
+                }`}
               />
               <button
                 onClick={() => setSelectedItemDetail(null)}
@@ -1188,17 +1209,23 @@ function CafeHome() {
               )}
 
               <div className="pt-2">
-                <button
-                  onClick={() => {
-                    const el = document.getElementById(`add-btn-${selectedItemDetail.id}`);
-                    el?.click();
-                    setSelectedItemDetail(null);
-                  }}
-                  className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>Add to Order • ₹{selectedItemDetail.price}</span>
-                </button>
+                {selectedItemDetail.isAvailable ? (
+                  <button
+                    onClick={() => {
+                      const el = document.getElementById(`add-btn-${selectedItemDetail.id}`);
+                      el?.click();
+                      setSelectedItemDetail(null);
+                    }}
+                    className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Add to Order • ₹{selectedItemDetail.price}</span>
+                  </button>
+                ) : (
+                  <div className="w-full py-3 bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-300 font-bold text-sm rounded-xl flex items-center justify-center gap-2 cursor-not-allowed">
+                    <span>Currently Unavailable</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

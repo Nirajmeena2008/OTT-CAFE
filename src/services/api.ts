@@ -11,7 +11,10 @@ import type {
   DeliveryNotification,
   AdminAccessUser,
   AuditLog,
+  RazorpayCreateOrderResponse,
+  RazorpayVerifyPaymentResponse,
 } from '../types';
+import { reverseGeocodeWithGoogle } from '../utils/googleMaps';
 
 // Defaults to a same-origin relative path (local dev, Vercel single-domain deploys).
 // Set VITE_API_BASE_URL at build time when the backend is hosted on a separate
@@ -188,6 +191,13 @@ export const api = {
     source: 'google' | 'osm' | 'coords';
     location?: { lat: number; lng: number };
   }> {
+    // Preferred path: Google's browser-authenticated Geocoder. Our Maps key is
+    // referer-restricted, so only this client-side call can use it; the server
+    // REST proxy gets REQUEST_DENIED with such keys and would land on the less
+    // accurate OpenStreetMap fallback.
+    const googleResult = await reverseGeocodeWithGoogle(lat, lng);
+    if (googleResult) return googleResult;
+
     const res = await fetch(
       `${BASE_URL}/maps/reverse-geocode?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`
     );
@@ -533,6 +543,21 @@ export const api = {
     });
     const json: ApiResponse<void> = await res.json();
     if (!json.success) throw new Error(json.error || 'Failed to delete banner');
+  },
+
+  // Cafe Info Management (Admin)
+  async updateCafeInfo(token: string, updates: Partial<CafeInfo>): Promise<CafeInfo> {
+    const res = await fetch(`${BASE_URL}/admin/cafe-info`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(updates),
+    });
+    const json: ApiResponse<CafeInfo> = await res.json();
+    if (!json.success || !json.data) throw new Error(json.error || 'Failed to update cafe info');
+    return json.data;
   },
 
   // Order Management: Cancel & Delete & Invoice
@@ -914,4 +939,67 @@ export const api = {
     if (!json.success || !json.data) throw new Error(json.error || 'Failed to fetch audit logs');
     return json.data;
   },
+
+  // ==========================================
+  // Razorpay Standard Checkout API Methods
+  // ==========================================
+  async createRazorpayOrder(payload: {
+    amount: number; // in paise (e.g. 50000 for ₹500)
+    currency?: string;
+    receipt?: string;
+    notes?: Record<string, string>;
+  }): Promise<RazorpayCreateOrderResponse> {
+    const res = await fetch(`${BASE_URL}/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.order_id) {
+      throw new Error(json.error || 'Failed to create Razorpay order');
+    }
+    return {
+      order_id: json.order_id,
+      amount: json.amount,
+      currency: json.currency,
+      receipt: json.receipt,
+      key_id: json.key_id,
+    };
+  },
+
+  async verifyRazorpayPayment(payload: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }): Promise<RazorpayVerifyPaymentResponse> {
+    const res = await fetch(`${BASE_URL}/verify-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || 'Payment verification failed');
+    }
+    return json;
+  },
+
+  async getRazorpayKey(): Promise<string> {
+    // 1. Try Vite env variable first
+    const envKey = (import.meta.env as any).VITE_RAZORPAY_KEY_ID || (import.meta.env as any).RAZORPAY_KEY_ID;
+    if (envKey) return envKey;
+
+    // 2. Fall back to backend config endpoint
+    try {
+      const res = await fetch(`${BASE_URL}/razorpay/config`);
+      const json = await res.json();
+      if (json.success && json.key_id) {
+        return json.key_id;
+      }
+    } catch {
+      // ignore
+    }
+    return '';
+  },
 };
+

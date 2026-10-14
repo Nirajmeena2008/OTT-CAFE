@@ -77,10 +77,12 @@ export const OfferComboView: React.FC<OfferComboViewProps> = ({
   };
 
   const handleAddEntireCombo = () => {
-    // Add all combo items to cart
-    comboItems.forEach((item) => {
-      addItem(item);
-    });
+    // Only available dishes can be added to the cart; unavailable ones are skipped
+    comboItems
+      .filter((item) => item.isAvailable)
+      .forEach((item) => {
+        addItem(item);
+      });
 
     // Apply the banner's promo code
     applyPromo(banner.code);
@@ -249,7 +251,9 @@ export const OfferComboView: React.FC<OfferComboViewProps> = ({
                   <img
                     src={item.image}
                     alt={item.name}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform"
+                    className={`w-full h-full object-cover hover:scale-105 transition-transform ${
+                      item.isAvailable ? '' : 'grayscale'
+                    }`}
                   />
                 </div>
 
@@ -294,20 +298,36 @@ export const OfferComboView: React.FC<OfferComboViewProps> = ({
                       {item.category}
                     </span>
                     <span className="text-stone-400">•</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                      <Check className="w-3 h-3" /> Included in Combo
-                    </span>
+                    {item.isAvailable ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Included in Combo
+                      </span>
+                    ) : (
+                      <span className="text-stone-500 dark:text-stone-400 font-semibold">
+                        Currently Unavailable
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Individual Add Button */}
-                <button
-                  onClick={() => addItem(item)}
-                  className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-amber-500 hover:text-amber-600 text-xs font-semibold shrink-0 cursor-pointer"
-                  title="Add an extra portion of this dish"
-                >
-                  <span>+ Extra</span>
-                </button>
+                {item.isAvailable ? (
+                  <button
+                    onClick={() => addItem(item)}
+                    className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-amber-500 hover:text-amber-600 text-xs font-semibold shrink-0 cursor-pointer"
+                    title="Add an extra portion of this dish"
+                  >
+                    <span>+ Extra</span>
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-400 dark:text-stone-500 text-xs font-semibold shrink-0 cursor-not-allowed opacity-70"
+                    title="This dish is currently unavailable"
+                  >
+                    <span>+ Extra</span>
+                  </button>
+                )}
               </div>
             ))}
           </div>
