@@ -74,13 +74,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
       [
         "default-src 'self'",
         // Menu/gallery imagery is served from Unsplash and similar hosts, not self-hosted.
-        "img-src 'self' data: https:",
-        "font-src 'self' data:",
-        "style-src 'self' 'unsafe-inline'",
-        "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com",
-        "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com",
-        // The location section embeds a Google Maps iframe; Razorpay checkout uses api.razorpay.com iframe.
-        "frame-src https://www.google.com https://maps.google.com https://api.razorpay.com",
+        "img-src 'self' data: https: https://*.razorpay.com",
+        "font-src 'self' data: https://fonts.gstatic.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://maps.googleapis.com",
+        "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://maps.googleapis.com",
+        // The location section embeds a Google Maps iframe; Razorpay checkout uses api.razorpay.com & checkout.razorpay.com iframe.
+        "frame-src https://www.google.com https://maps.google.com https://api.razorpay.com https://checkout.razorpay.com",
         "object-src 'none'",
         "base-uri 'self'",
       ].join('; ')
