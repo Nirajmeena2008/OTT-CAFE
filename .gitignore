@@ -9,3 +9,5 @@ coverage/
 deploy/
 
 .claude/
+client_secret*.json
+

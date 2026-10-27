@@ -2,6 +2,7 @@ import React from 'react';
 import { Star, Plus, Minus, Clock, Flame } from 'lucide-react';
 import type { MenuItem } from '../types';
 import { useCart } from '../context/CartContext';
+import { handleImageFallback, FALLBACK_FOOD_IMAGE } from '../utils/imageFallbacks';
 
 interface MenuItemCardProps {
   item: MenuItem;
@@ -134,11 +135,8 @@ export const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, onOpenDetails 
               src={item.image}
               alt={item.name}
               loading="lazy"
-              onError={(e) => {
-                // High-quality fallback image if image link is unreachable
-                (e.target as HTMLImageElement).src =
-                  'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80';
-              }}
+              referrerPolicy="no-referrer"
+              onError={(e) => handleImageFallback(e, FALLBACK_FOOD_IMAGE)}
               className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${
                 item.isAvailable ? '' : 'grayscale'
               }`}

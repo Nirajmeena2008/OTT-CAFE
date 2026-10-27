@@ -11,6 +11,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { RESTAURANT_IMAGES, type RestaurantAmbianceImage } from '../data/restaurantImages';
+import { handleImageFallback, FALLBACK_BANNER_IMAGE } from '../utils/imageFallbacks';
 
 interface RestaurantAmbianceGalleryProps {
   onOpenReservation?: () => void;
@@ -53,8 +54,10 @@ export const RestaurantAmbianceGallery: React.FC<RestaurantAmbianceGalleryProps>
                 <img
                   src={img.imageUrl}
                   alt={img.title}
-                  className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
                   loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => handleImageFallback(e, FALLBACK_BANNER_IMAGE)}
+                  className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
 
@@ -140,6 +143,8 @@ export const RestaurantAmbianceGallery: React.FC<RestaurantAmbianceGalleryProps>
               <img
                 src={activeImage.imageUrl}
                 alt={activeImage.title}
+                referrerPolicy="no-referrer"
+                onError={(e) => handleImageFallback(e, FALLBACK_BANNER_IMAGE)}
                 className="w-full h-full object-cover"
               />
               <div className="absolute bottom-3 left-4">

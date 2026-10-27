@@ -28,6 +28,20 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Cafe application server running on http://localhost:${PORT}`);
   });
+
+  // Also bind port 8080 in dev if PORT is not 8080 to match registered OAuth callback URI
+  if (process.env.NODE_ENV !== 'production' && PORT !== 8080) {
+    try {
+      const server8080 = app.listen(8080, '0.0.0.0', () => {
+        console.log(`OAuth callback listener also running on http://localhost:8080`);
+      });
+      server8080.on('error', () => {
+        // Port 8080 may already be in use; ignore gracefully
+      });
+    } catch {
+      // Ignore
+    }
+  }
 }
 
 startServer().catch((err) => {

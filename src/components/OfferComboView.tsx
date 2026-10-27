@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { PromoBanner, MenuItem } from '../types';
 import { useCart } from '../context/CartContext';
+import { handleImageFallback, FALLBACK_BANNER_IMAGE, FALLBACK_FOOD_IMAGE } from '../utils/imageFallbacks';
 
 interface OfferComboViewProps {
   banner: PromoBanner;
@@ -139,6 +140,8 @@ export const OfferComboView: React.FC<OfferComboViewProps> = ({
           <img
             src={banner.imageUrl}
             alt={banner.title}
+            referrerPolicy="no-referrer"
+            onError={(e) => handleImageFallback(e, FALLBACK_BANNER_IMAGE)}
             className="w-full h-full object-cover object-center brightness-[0.76]"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/35 to-transparent" />
@@ -251,6 +254,8 @@ export const OfferComboView: React.FC<OfferComboViewProps> = ({
                   <img
                     src={item.image}
                     alt={item.name}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => handleImageFallback(e, FALLBACK_FOOD_IMAGE)}
                     className={`w-full h-full object-cover hover:scale-105 transition-transform ${
                       item.isAvailable ? '' : 'grayscale'
                     }`}

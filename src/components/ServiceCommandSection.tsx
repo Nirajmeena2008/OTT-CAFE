@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { handleImageFallback, FALLBACK_BANNER_IMAGE } from '../utils/imageFallbacks';
 import {
   CalendarCheck,
   Utensils,
@@ -364,6 +365,8 @@ export const ServiceCommandSection: React.FC<ServiceCommandSectionProps> = ({
               key={currentService.id}
               src={currentService.imageUrl}
               alt={currentService.title}
+              referrerPolicy="no-referrer"
+              onError={(e) => handleImageFallback(e as any, FALLBACK_BANNER_IMAGE)}
               initial={{ opacity: 0, scale: 1.05 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}

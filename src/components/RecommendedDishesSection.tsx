@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { MenuItem, Order, Category } from '../types';
 import { useCart } from '../context/CartContext';
+import { handleImageFallback, FALLBACK_FOOD_IMAGE } from '../utils/imageFallbacks';
 
 export interface RecommendedDishesSectionProps {
   menuItems: MenuItem[];
@@ -273,6 +274,8 @@ export const RecommendedDishesSection: React.FC<RecommendedDishesSectionProps> =
                   src={item.image}
                   alt={item.name}
                   loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => handleImageFallback(e, FALLBACK_FOOD_IMAGE)}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
 

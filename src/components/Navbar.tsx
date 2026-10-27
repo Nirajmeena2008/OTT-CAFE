@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { handleImageFallback, FALLBACK_FOOD_IMAGE } from '../utils/imageFallbacks';
 import { FilterBar, FilterBarProps } from './FilterBar';
 import type { Category, MenuItem } from '../types';
 import { CategoryPills } from './CategoryPills';
@@ -285,6 +286,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                         src={item.image}
                         alt={item.name}
                         loading="lazy"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => handleImageFallback(e, FALLBACK_FOOD_IMAGE)}
                         className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0 border border-stone-200 dark:border-stone-700"
                       />
                       <div className="min-w-0 flex-1">

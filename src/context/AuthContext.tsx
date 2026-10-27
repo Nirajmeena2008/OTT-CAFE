@@ -83,10 +83,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const storedState = sessionStorage.getItem('google_oauth_state');
       const error = urlParams.get('error');
 
+      // Check for cross-origin auth sync (e.g. returning from port 8080 to port 3000)
+      const syncData = urlParams.get('ott_auth_sync');
+      if (syncData) {
+        try {
+          const parsed = JSON.parse(decodeURIComponent(syncData));
+          if (parsed.customer && parsed.token) {
+            setCustomer(parsed.customer);
+            setCustomerToken(parsed.token);
+            localStorage.setItem(STORAGE_CUSTOMER_KEY, JSON.stringify(parsed.customer));
+            localStorage.setItem(STORAGE_TOKEN_KEY, parsed.token);
+            localStorage.removeItem(SIGNED_OUT_FLAG_KEY);
+            if (parsed.adminToken) {
+              setAdminToken(parsed.adminToken);
+              sessionStorage.setItem('aura_cafe_admin_token', parsed.adminToken);
+            }
+            const cleanUrl = window.location.pathname || '/';
+            window.history.replaceState({}, document.title, cleanUrl);
+            return;
+          }
+        } catch (e) {
+          console.error('Auth sync parse error:', e);
+        }
+      }
+
       // Check if this is a Google OAuth callback:
       // Either direct callback path (/auth/google/callback) or landing on root with OAuth code/state
       const isCallbackPath = window.location.pathname.includes('/auth/google/callback');
-      const hasOAuthParams = Boolean(code || error || (state && storedState));
+      const hasOAuthParams = Boolean((code && state) || (error && (isCallbackPath || storedState)));
 
       if (!isCallbackPath && !hasOAuthParams) {
         return;
@@ -101,14 +125,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Handle OAuth errors
       if (error) {
         console.error('Google OAuth error:', error);
-        window.location.replace('/?error=oauth_denied');
+        sessionStorage.removeItem('google_oauth_state');
+        sessionStorage.removeItem('google_oauth_redirect_uri');
+        const cleanUrl = window.location.pathname.replace(/\/auth\/google\/callback\/?$/, '') || '/';
+        window.history.replaceState({}, document.title, `${cleanUrl}?error=oauth_denied`);
         return;
       }
 
       // Validate state parameter (CSRF protection)
       if (!state || state !== storedState) {
         console.error('Invalid OAuth state parameter');
-        window.location.replace('/?error=oauth_invalid_state');
+        sessionStorage.removeItem('google_oauth_state');
+        sessionStorage.removeItem('google_oauth_redirect_uri');
+        const cleanUrl = window.location.pathname.replace(/\/auth\/google\/callback\/?$/, '') || '/';
+        window.history.replaceState({}, document.title, `${cleanUrl}?error=oauth_invalid_state`);
         return;
       }
 
@@ -118,6 +148,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Match the exact redirectUri used during the authorization request
       const redirectUri =
         sessionStorage.getItem('google_oauth_redirect_uri') ||
+        import.meta.env.VITE_GOOGLE_REDIRECT_URI ||
         (window.location.origin.includes('ottcafe.in')
           ? 'https://ottcafe.in'
           : `${window.location.origin}/auth/google/callback`);
@@ -164,10 +195,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         // Fully reload to the home page to cleanly remount the application state
         // and remove all OAuth query parameters (like code, state, etc) from the URL bar.
+        const originUrl = sessionStorage.getItem('google_oauth_origin');
+        sessionStorage.removeItem('google_oauth_origin');
+        if (originUrl && originUrl.startsWith('http') && !originUrl.includes(window.location.host)) {
+          // Cross-origin redirect back to user's starting port (e.g. 3000 from 8080)
+          const targetUrl = new URL(originUrl);
+          targetUrl.searchParams.set(
+            'ott_auth_sync',
+            encodeURIComponent(
+              JSON.stringify({
+                customer: json.customer,
+                token: json.token,
+                adminToken: json.adminToken,
+              })
+            )
+          );
+          window.location.replace(targetUrl.toString());
+          return;
+        }
         window.location.replace('/');
       } catch (err) {
-        console.error("Google OAuth callback failed:", err);
-        window.location.replace('/?error=oauth_failed');
+        console.error('Google OAuth callback failed:', err);
+        const cleanUrl = window.location.pathname.replace(/\/auth\/google\/callback\/?$/, '') || '/';
+        window.history.replaceState({}, document.title, `${cleanUrl}?error=oauth_failed`);
       }
     };
 
@@ -247,11 +297,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Redirect URI must exactly match one of the "Authorized redirect URIs" registered
     // in Google Cloud Console for this OAuth 2.0 client.
-    // In the credentials document, authorized redirect_uris is ["https://ottcafe.in"].
-    // For local dev, fall back to `${window.location.origin}/auth/google/callback`.
-    const redirectUri = window.location.origin.includes('ottcafe.in')
-      ? 'https://ottcafe.in'
-      : `${window.location.origin}/auth/google/callback`;
+    // In the credentials document, authorized redirect_uris are ["https://ottcafe.in", "http://localhost:8080/auth/google/callback"].
+    // For local dev, fall back to configured VITE_GOOGLE_REDIRECT_URI or `${window.location.origin}/auth/google/callback`.
+    const redirectUri =
+      import.meta.env.VITE_GOOGLE_REDIRECT_URI ||
+      (window.location.origin.includes('ottcafe.in')
+        ? 'https://ottcafe.in'
+        : `${window.location.origin}/auth/google/callback`);
 
     const scope = 'openid email profile';
 
@@ -259,6 +311,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const state = crypto.randomUUID();
     sessionStorage.setItem('google_oauth_state', state);
     sessionStorage.setItem('google_oauth_redirect_uri', redirectUri);
+    sessionStorage.setItem('google_oauth_origin', window.location.origin);
 
     const authUrl =
       `https://accounts.google.com/o/oauth2/v2/auth` +

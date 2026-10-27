@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, LayoutGrid, X, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Category } from '../types';
+import { handleImageFallback, FALLBACK_FOOD_IMAGE } from '../utils/imageFallbacks';
 
 export interface CategoryPillsProps {
   categories: Category[];
@@ -212,6 +213,8 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
                     alt={cat.name}
                     loading="lazy"
                     draggable={false}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => handleImageFallback(e, FALLBACK_FOOD_IMAGE)}
                     className="w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 ease-out group-hover:scale-110"
                   />
                 </div>
@@ -384,6 +387,8 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
                             <img
                               src={imageUrl}
                               alt={cat.name}
+                              referrerPolicy="no-referrer"
+                              onError={(e) => handleImageFallback(e, FALLBACK_FOOD_IMAGE)}
                               className="w-full h-full object-cover"
                             />
                           </div>

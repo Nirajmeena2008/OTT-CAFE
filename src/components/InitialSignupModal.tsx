@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { handleImageFallback, FALLBACK_BANNER_IMAGE } from '../utils/imageFallbacks';
 
 
 interface InitialSignupModalProps {
@@ -39,6 +40,8 @@ export function InitialSignupModal({ onClose }: InitialSignupModalProps) {
           <img 
             src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&q=80" 
             alt="OTT Cafe Ambiance" 
+            referrerPolicy="no-referrer"
+            onError={(e) => handleImageFallback(e, FALLBACK_BANNER_IMAGE)}
             className="absolute inset-0 w-full h-full object-cover"
           />
           {/* Gradient overlays for close button contrast at top and text readability at bottom */}

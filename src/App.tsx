@@ -45,6 +45,7 @@ import { AdminDashboard } from './components/admin/AdminDashboard';
 import { LocationSection } from './components/LocationSection';
 import { MenuPdfDownloadSection } from './components/MenuPdfDownloadSection';
 import { RestaurantAmbianceGallery } from './components/RestaurantAmbianceGallery';
+import { handleImageFallback, FALLBACK_FOOD_IMAGE } from './utils/imageFallbacks';
 import { api } from './services/api';
 import type { MenuItem, Category, PromoBanner, Order, CafeInfo } from './types';
 import { 
@@ -113,6 +114,10 @@ function CafeHome() {
 
   useEffect(() => {
     // Only show if the customer isn't logged in and hasn't dismissed it this session
+    if (customerToken || customer) {
+      setShowInitialSignup(false);
+      return;
+    }
     const hasDismissed = sessionStorage.getItem('has_dismissed_initial_signup_v2');
     if (!hasDismissed) {
       const timer = setTimeout(() => {
@@ -120,7 +125,7 @@ function CafeHome() {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [customerToken]);
+  }, [customerToken, customer]);
 
   const handleCloseInitialSignup = () => {
     sessionStorage.setItem('has_dismissed_initial_signup_v2', 'true');
@@ -1146,6 +1151,8 @@ function CafeHome() {
               <img
                 src={selectedItemDetail.image}
                 alt={selectedItemDetail.name}
+                referrerPolicy="no-referrer"
+                onError={(e) => handleImageFallback(e, FALLBACK_FOOD_IMAGE)}
                 className={`w-full h-full object-cover ${
                   selectedItemDetail.isAvailable ? '' : 'grayscale'
                 }`}

@@ -34,6 +34,7 @@ import {
   ToggleRight,
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { handleImageFallback, FALLBACK_BANNER_IMAGE } from '../../utils/imageFallbacks';
 import { readFileAsDataUrl, MAX_UPLOAD_FILE_SIZE_BYTES } from '../../utils/readFileAsDataUrl';
 import type { MenuItem, PromoBanner, Order, Reservation, CafeInfo, OrderStatus, Category, AdminAccessUser } from '../../types';
 import { OrdersManagement } from './OrdersManagement';
@@ -1768,7 +1769,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 overflow-hidden shadow-xs flex flex-col justify-between"
                 >
                   <div className="relative h-36 bg-stone-800">
-                    <img src={b.imageUrl} alt={b.title} className="w-full h-full object-cover" />
+                    <img
+                      src={b.imageUrl}
+                      alt={b.title}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => handleImageFallback(e, FALLBACK_BANNER_IMAGE)}
+                      className="w-full h-full object-cover"
+                    />
                     <div className="absolute inset-0 bg-black/60 p-4 flex flex-col justify-between text-white">
                       <div className="flex items-center justify-between">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${b.badgeBgColor}`}>

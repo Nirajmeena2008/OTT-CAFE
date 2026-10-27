@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Sparkles, Tag, ArrowRight } from 'lucide-react';
 import type { PromoBanner } from '../types';
+import { handleImageFallback, FALLBACK_BANNER_IMAGE } from '../utils/imageFallbacks';
 
 interface FlipkartPromoBannerProps {
   banners: PromoBanner[];
@@ -60,6 +61,8 @@ export const FlipkartPromoBanner: React.FC<FlipkartPromoBannerProps> = ({
           <img
             src={current.imageUrl}
             alt={current.title}
+            referrerPolicy="no-referrer"
+            onError={(e) => handleImageFallback(e, FALLBACK_BANNER_IMAGE)}
             className="w-full h-full object-cover object-center transition-all duration-700 ease-out brightness-[0.82] group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />

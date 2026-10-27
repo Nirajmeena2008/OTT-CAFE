@@ -32,6 +32,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { handleImageFallback, FALLBACK_BANNER_IMAGE, FALLBACK_FOOD_IMAGE } from '../utils/imageFallbacks';
 import type { PromoBanner, MenuItem } from '../types';
 
 interface TopPromotionalHeroProps {
@@ -368,6 +369,8 @@ export const TopPromotionalHero: React.FC<TopPromotionalHeroProps> = ({
                   <img
                     src={combo.imageUrl}
                     alt={combo.title}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => handleImageFallback(e, FALLBACK_BANNER_IMAGE)}
                     className="absolute inset-0 w-full h-full object-cover object-center brightness-[0.82] group-hover:scale-105 transition-transform duration-700"
                   />
 
@@ -638,6 +641,8 @@ export const TopPromotionalHero: React.FC<TopPromotionalHeroProps> = ({
                               src={item.image}
                               alt={item.name}
                               loading="lazy"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => handleImageFallback(e, FALLBACK_FOOD_IMAGE)}
                               className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0 border border-stone-200 dark:border-stone-700"
                             />
                             <div className="min-w-0 flex-1">
